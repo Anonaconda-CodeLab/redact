@@ -1,0 +1,74 @@
+name: Android test APK (debug key)
+# While the repository is private, GitHub can't protect the "signing" environment with the owner's approval, so the
+# studio's key is never used for Redact yet. This builds a test APK signed with a throwaway debug key instead:
+# installable for trying the app, never published as a release, and never an update to the official app (Android sees
+# a different signer). Each run makes a new debug key, so uninstall the previous test APK before installing a new one.
+# Runs on each push to test, or by hand (Actions > this workflow > Run workflow). The APK is attached to the run page as
+# an artifact for 14 days. Remove this workflow once the repository is public and the signing environment is set up.
+#
+# Read-only, no secrets; actions pinned to exact commits (the comment names the release), as in android.yml.
+on:
+  push:
+    branches: [test]
+    paths: ['src/**', 'docs/MANUAL.md', 'build.mjs', 'package.json', 'mobile/**', '.github/workflows/android-debug.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: android-debug-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09   # v5.1.0
+        with:
+          persist-credentials: false   # no token left in .git/config for later steps to find
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444   # v5.0.0
+        with:
+          node-version: 22
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961   # v5.7.0
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/wrapper-validation@8da46b539cd8fe6ab27ca75128919a18d757604c   # v6.4.1 · gradle-wrapper.jar must be an official Gradle release before gradlew runs
+      - name: Version
+        id: ver
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Build the web app
+        env:
+          APP_BUILD_ID: ${{ github.sha }}   # shown as "build abc1234" in the APK's About
+        run: node build.mjs
+      - name: Copy it into the Android project
+        working-directory: mobile
+        run: npm ci --ignore-scripts && npx cap sync android   # no package's install scripts run
+      - name: Build the APK (debug key)
+        working-directory: mobile/android
+        run: |
+          chmod +x gradlew
+          set +e; ./gradlew --no-daemon assembleDebug 2>&1 | tee "$RUNNER_TEMP/gradle.log"; status=${PIPESTATUS[0]}; set -e
+          if [ "$status" != 0 ]; then
+            msg=$(grep -E -A4 "error:|What went wrong|Lint found" "$RUNNER_TEMP/gradle.log" | head -60 | sed ':a;N;$!ba;s/%/%25/g;s/\n/%0A/g')
+            echo "::error title=Android build failed::$msg"
+            exit "$status"
+          fi
+      - name: Check the APK (no internet permission, the right version)
+        env:
+          VER: ${{ steps.ver.outputs.version }}
+        run: |
+          APK=mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          if [ ! -f "$APK" ]; then echo "::error::No debug APK was built"; ls -R mobile/android/app/build/outputs/apk || true; exit 1; fi
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$BT/aapt2" dump permissions "$APK" | tee perms.txt
+          if grep -q "android.permission.INTERNET" perms.txt; then echo "::error::INTERNET permission found"; exit 1; fi
+          APKVER=$("$BT/aapt2" dump badging "$APK" | sed -n "s/.*versionName='\([^']*\)'.*/\1/p" | head -1)
+          if [ "$APKVER" != "$VER" ]; then echo "::error::APK versionName $APKVER differs from package.json version $VER"; exit 1; fi
+          cp "$APK" "Redact-$VER-debug-${GITHUB_SHA::7}.apk"
+          sha256sum "Redact-$VER-debug-${GITHUB_SHA::7}.apk"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9   # v7.0.2
+        with:
+          name: Redact-${{ steps.ver.outputs.version }}-debug-apk
+          path: Redact-*-debug-*.apk
+          retention-days: 14

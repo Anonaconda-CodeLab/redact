@@ -1,0 +1,54 @@
+# CodeRabbit settings for Redact: reviews pull requests into main (the same shape as Flatbed's, Unmarked's and Rounds')
+language: en-GB
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - "main"
+  # built output, vendored engines and models, fonts, binary test files and Android tooling: not our code, or generated
+  # from it (their checksums are tested against tests/origins.json). The script that makes the test files is reviewed.
+  path_filters:
+    - "!dist/**"
+    - "!src/vendor/**"
+    - "!src/models/**"
+    - "!src/fonts/**"
+    - "!tests/fixtures/**/*.gz"
+    - "!tests/fixtures/**/*.jpg"
+    - "!mobile/package-lock.json"
+    - "!mobile/android/gradle/**"
+    - "!mobile/android/gradlew"
+    - "!mobile/android/gradlew.bat"
+    - "!mobile/android/app/src/main/res/mipmap-*/**"
+    - "!**/*.png"
+    - "!**/*.woff2"
+  path_instructions:
+    - path: "**"
+      instructions: |
+        Redact covers what people can see in photos and screenshots (faces, number plates, names, card numbers, codes)
+        before sharing, entirely on the device. By design it has no network access: the page's Content Security
+        Policy has connect-src 'none' (it also covers the detection worker), and the Android app has no INTERNET
+        permission. Nothing is uploaded or stored. Every picture is untrusted input. Focus on: anything that could send
+        data off the device or make an engine download something; untrusted text reaching the page unescaped; input
+        that could crash, hang or run out of memory; and covers that might leave original pixels behind.
+    - path: "src/detect.js"
+      instructions: |
+        Model inputs and outputs: PP-OCRv4 text regions (DB post-processing), YuNet face decoding (must match OpenCV's
+        FaceDetectorYN; a test compares them), tiles, NMS, margins and the cover styles. Check coordinate mapping back
+        to the picture, bounds on every pixel write, and that covers change every pixel inside the box and nothing
+        outside it.
+    - path: "src/detect-worker.js"
+      instructions: |
+        The module worker that runs the models. Check that nothing is fetched (engines and models arrive as bytes) and
+        that a code's contents never leave the worker.
+    - path: "src/picture.js"
+      instructions: |
+        An exact copy of Flatbed's picture-size check (a test compares it); changes are made in Flatbed first.
+    - path: "src/app.js"
+      instructions: |
+        Everything from a file is untrusted: it must never reach innerHTML. The summary must never include the file
+        name or what a picture shows.

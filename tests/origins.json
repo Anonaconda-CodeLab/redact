@@ -1,0 +1,38 @@
+{
+ "picture.js": {
+  "from": "Flatbed src/scan.js, 1.0.2 (d6d08d6): from 'A small file can declare' to the end of tooLarge",
+  "sha256": "d8823949403162a6eb9f4f10ad14483b7dbbb7e9e809cd4fe057f68c87427b50"
+ },
+ "files": {
+  "src/vendor/ort.wasm.bundle.min.mjs": {
+   "from": "npm onnxruntime-web 1.31.1, dist/ort.wasm.bundle.min.mjs",
+   "licence": "MIT",
+   "sha256": "51bd7168175767324ab0acfcfc4ca94a096a3826e3ebac9ccc4f195eb865f8dd"
+  },
+  "src/vendor/ort-wasm-simd-threaded.wasm.gz": {
+   "from": "npm onnxruntime-web 1.31.1, dist/ort-wasm-simd-threaded.wasm (gzipped here)",
+   "licence": "MIT",
+   "sha256": "4b884c203b0fa48d057be3332c65513ff85aa3c5bddd6946acc0fab7ecda001d"
+  },
+  "src/vendor/zxing-reader.js": {
+   "from": "npm zxing-wasm 3.1.6, dist/iife/reader/index.js",
+   "licence": "MIT (zxing-cpp: Apache-2.0)",
+   "sha256": "ffd72d59d54082194f7c086b384dcd930bdeb0c5b39fbb13779694e69bb0d344"
+  },
+  "src/vendor/zxing_reader.wasm.gz": {
+   "from": "npm zxing-wasm 3.1.6, dist/reader/zxing_reader.wasm (gzipped here)",
+   "licence": "MIT (zxing-cpp: Apache-2.0)",
+   "sha256": "5003fb4b88c4fbd1fd518a2fd8c8ad365c519e183a08c03a322dddfea3cea84e"
+  },
+  "src/models/ppocrv4-det.onnx": {
+   "from": "npm @gutenye/ocr-models 1.4.2, assets/ch_PP-OCRv4_det_infer.onnx (PaddleOCR's PP-OCRv4 text detector in ONNX form)",
+   "licence": "Apache-2.0",
+   "sha256": "30a86f5731181461d08021402766601e4302a9b9b9666be8aff402696339cdff"
+  },
+  "src/models/yunet-2023mar.onnx": {
+   "from": "OpenCV Zoo (opencv/opencv_zoo at 48b10fa), models/face_detection_yunet/face_detection_yunet_2023mar.onnx",
+   "licence": "MIT",
+   "sha256": "8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4"
+  }
+ }
+}
