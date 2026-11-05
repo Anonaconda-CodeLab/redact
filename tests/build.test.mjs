@@ -38,15 +38,27 @@ test('headers: a second block on connections, no framing, no camera, *.pages.dev
   for (const k of ['Referrer-Policy: no-referrer', 'X-Content-Type-Options: nosniff', 'Cross-Origin-Opener-Policy: same-origin', 'Strict-Transport-Security']) assert.ok(h.includes(k), k);
 });
 
-test('everything is inlined: engines, models, app', () => {
-  for (const id of ['srcDetect', 'binOrt', 'binText', 'binFace', 'binCodes']) assert.ok(html.includes(`id="${id}"`), id);
+test('everything is inlined: engines, models, five languages, app', () => {
+  for (const id of ['srcDetect', 'srcOcr', 'binOrt', 'binText', 'binFace', 'binCodes', 'binWasm', 'binLang-eng', 'binLang-fra', 'binLang-spa', 'binLang-deu', 'binLang-tha'])
+    assert.ok(html.includes(`id="${id}"`), id);
   const worker = /<script type="text\/plain" id="srcDetect">([\s\S]*?)<\/script>/.exec(html)[1];
   assert.match(worker, /const ort=\{[^}]*InferenceSession:[^}]*Tensor:[^}]*env:/, 'the runtime is one module with the worker');
   assert.ok(!/\bexport\s*\{/.test(worker) && !/^\s*import\s/m.test(worker), 'no imports or exports left in the worker');
   assert.match(worker, /prepareZXingModule\(\{ overrides: \{ wasmBinary:/, 'the code reader gets its WebAssembly as bytes (it would fetch it from a CDN otherwise)');
+  const ocr = /<script type="text\/plain" id="srcOcr">([\s\S]*?)<\/script>/.exec(html)[1];
+  assert.ok(ocr.includes('TesseractCore') && ocr.includes('FlatbedOcrEngine'));
+  for (const g of ['RedactPicture', 'RedactDetect', 'RedactText', 'RedactPaint', 'UnmarkedClean', 'RedactApp', 'RedactEditor', 'RedactSave']) assert.ok(html.includes(g), g);
   assert.ok(html.includes(`Version ${pkg.version}`));
   assert.ok(!/\{\{[A-Z_]+\}\}/.test(html), 'unfilled placeholder');
   assert.ok(html.length < 24 * 1048576, 'page under 24 MB (Cloudflare Pages serves files up to 25 MiB)');
+});
+
+test('the screens, the two ways in, the donation card', () => {
+  for (const id of ['scrHome', 'scrFirst', 'scrEdit', 'scrCheck', 'scrSettings', 'scrAbout', 'scrHelp', 'photoInput', 'fileInput', 'stage', 'findForm', 'btnCheck', 'btnSave', 'donateCard', 'langChips'])
+    assert.ok(html.includes(`id="${id}"`), id);
+  assert.match(html, /<input type="file" id="photoInput" multiple accept="image\/jpeg,image\/png,image\/webp/, 'Open photos: pictures only (the photo picker)');
+  assert.match(html, /<input type="file" id="fileInput" multiple>/, 'Browse files: any file, any folder (Redact refuses what isn\'t a picture)');
+  for (const l of ['eng', 'fra', 'spa', 'deu', 'tha']) assert.ok(html.includes(`data-lang="${l}"`), l);
 });
 
 test('the Android page and its links are off until the launch', () => {
@@ -54,6 +66,6 @@ test('the Android page and its links are off until the launch', () => {
   assert.ok(!/android\.html/.test(html));
 });
 
-test('pictures and results are kept from browser translators', () => {
-  assert.match(html, /<ol class="results" id="results" translate="no">/);
+test('pictures, words and results are kept from browser translators', () => {
+  for (const id of ['pics', 'stage', 'findIn', 'findList', 'checkImg', 'checkSub', 'editN']) assert.match(html, new RegExp(`id="${id}"[^>]*translate="no"|translate="no"[^>]*id="${id}"`), id);
 });

@@ -1,206 +1,393 @@
 /* Copyright (C) 2026 Anonaconda Code Lab · SPDX-License-Identifier: GPL-3.0-or-later
-   ---------- Redact: the detection test page ----------
-   Opens pictures, hands each one to the detection worker and shows what was found: outlines, or a preview of black
-   covers and the face mosaic, drawn on a display copy only. Nothing is saved and nothing leaves the device (the page's
-   policy blocks every connection). The editor and saving come next. */
-(() => {
+   ---------- Redact: the app ----------
+   Opens pictures, finds what to cover (detect-worker.js: faces, text regions, codes; Tesseract reads the text regions,
+   text.js finds numbers and addresses in them), lets the person check and change the covers (editor.js), then paints
+   the covers into a full-size copy, saves it as a new file and checks the saved file (paint.js, clean.js).
+   Nothing leaves the device: the page's policy blocks every connection. */
+const RedactApp = (() => {
   'use strict';
   const $ = id => document.getElementById(id);
-  const MAX_BYTES = 60 * 1024 * 1024;   // larger files are refused before they are read in full
-  const KINDS = new Set(['jpeg', 'png', 'webp']);   // version 1: JPEG, PNG and WebP
-  const SHOW_MAX = 1600;                // the display copy's longer side
-  const P = globalThis.RedactPicture, D = globalThis.RedactDetect;
   const APP = { name: '{{APP_NAME}}', version: '{{VERSION}}' };
-  const state = { look: 'outline', faceMin: 0.6, items: [], queue: Promise.resolve(), worker: null, ready: null, next: 1 };
+  const P = globalThis.RedactPicture, D = globalThis.RedactDetect, T = globalThis.RedactText;
+  const MAX_BYTES = 60 * 1024 * 1024;   // larger files are refused before they are read in full
+  const MAX_PICS = 20;                  // pictures open at once (each keeps its file in memory)
+  const MIME = { jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp' };   // version 1: JPEG, PNG and WebP
+  const FACE_MIN = 0.6;                 // faces below this score are not suggested
+  const size = n => n < 1048576 ? Math.max(1, Math.round(n / 1024)) + ' KB' : (n / 1048576).toFixed(1) + ' MB';
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many || one + 's'}`;
+
+  // ---------- what can be covered ----------
+  // the categories found automatically (settings decide which are covered straight away), then Find words and by hand
+  const CATS = [
+    { id: 'faces', label: 'Faces', on: true, note: 'People, also small and in the background.' },
+    { id: 'cards', label: 'Card and bank numbers', on: true, note: 'Card numbers (checked with the card checksum) and IBANs.' },
+    { id: 'ids', label: 'ID numbers', on: true, note: 'Thai ID card numbers (checked) and passport lines.' },
+    { id: 'emails', label: 'Email addresses', on: true },
+    { id: 'phones', label: 'Phone numbers', on: true },
+    { id: 'codes', label: 'QR codes and barcodes', on: true, note: 'Tickets, boarding passes and parcel labels hold names and booking codes.' },
+    { id: 'links', label: 'Web addresses', on: false },
+    { id: 'numbers', label: 'Long numbers', on: false, note: 'Account, order and booking numbers: 8 digits or more.' },
+    { id: 'text', label: 'Other text', on: false, note: 'Every other piece of text: signs, number plates, house numbers, names, each line of a screenshot.' },
+    { id: 'maybe', label: 'Possible text', on: false, note: 'Shapes that look like text but read as nothing, such as railings or patterns.' }
+  ];
+  const EXTRA = [{ id: 'words', label: 'Your words' }, { id: 'hand', label: 'By hand' }];
+  const catLabel = id => (CATS.concat(EXTRA).find(c => c.id === id) || {}).label || id;
+
+  // ---------- settings: kept only when the person asks ----------
+  const SET_KEY = 'redact.settings';
+  const settings = { cats: Object.fromEntries(CATS.map(c => [c.id, c.on])), langs: ['eng'], format: 'auto', colour: 'black', faces: 'solid', remember: false, chosen: false };
+  try {
+    const s = JSON.parse(localStorage.getItem(SET_KEY) || 'null');
+    if (s && typeof s === 'object') {
+      for (const c of CATS) if (typeof (s.cats || {})[c.id] === 'boolean') settings.cats[c.id] = s.cats[c.id];
+      const langs = (Array.isArray(s.langs) ? s.langs : []).filter(l => REDACT.languages.some(([c]) => c === l));
+      if (langs.length) settings.langs = langs;
+      if (['auto', 'png', 'jpeg'].includes(s.format)) settings.format = s.format;
+      if (['black', 'white', 'around'].includes(s.colour)) settings.colour = s.colour;
+      if (['solid', 'mosaic'].includes(s.faces)) settings.faces = s.faces;
+      settings.remember = settings.chosen = true;
+    }
+  } catch (e) { /* storage off: defaults, and the first-run question */ }
+  function saveSettings() {
+    try {
+      if (settings.remember) localStorage.setItem(SET_KEY, JSON.stringify({ cats: settings.cats, langs: settings.langs, format: settings.format, colour: settings.colour, faces: settings.faces }));
+      else localStorage.removeItem(SET_KEY);
+    } catch (e) { /* storage off */ }
+  }
 
   // ---------- screens ----------
-  const screens = ['scrHome', 'scrAbout', 'scrHelp'];
-  const show = id => { for (const s of screens) $(s).hidden = s !== id; window.scrollTo(0, 0); };
-  $('btnHome').onclick = () => show('scrHome');
-  $('btnAbout').onclick = () => show('scrAbout');
-  $('btnAboutBack').onclick = () => show('scrHome');
-  $('btnHelp').onclick = $('btnHelp2').onclick = () => show('scrHelp');
-  $('btnHelpBack').onclick = () => show('scrAbout');
-  // Android's Back button: back inside the app first (MainActivity asks this)
-  window.redactBack = () => {
-    if (!$('scrHelp').hidden) { show('scrAbout'); return true; }
-    if (!$('scrAbout').hidden) { show('scrHome'); return true; }
-    return false;
-  };
+  const screens = ['scrHome', 'scrFirst', 'scrEdit', 'scrCheck', 'scrSettings', 'scrAbout', 'scrHelp'];
+  let current = 'scrHome';
+  const listeners = [];
+  function show(id) {
+    for (const s of screens) $(s).hidden = s !== id;
+    const was = current; current = id;
+    window.scrollTo(0, 0);
+    for (const fn of listeners) fn(id, was);
+  }
+  let toastTimer = 0;
+  function toast(msg) {
+    let t = document.querySelector('.toast');
+    if (!t) { t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); document.body.appendChild(t); }
+    t.textContent = msg; t.hidden = false;
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 4500);
+  }
 
-  // ---------- the detection worker ----------
-  // the worker's code sits in the page as plain text; the engines and models are gzipped base64 (see build.mjs)
-  async function unpack(id) {
-    const b = atob($(id).textContent.trim()), u = new Uint8Array(b.length);
-    for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i);
-    return new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
+  // ---------- workers: detection (module worker) and text reading (Flatbed's engine) ----------
+  const b64 = id => { const s = atob($(id).textContent.trim()), u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u; };
+  const gunzip = async u => new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
+  const unpack = id => gunzip(b64(id));
+  const detector = (() => {
+    let w = null, ready = null, seq = 0;
+    const wait = new Map();
+    function start() {
+      const url = URL.createObjectURL(new Blob([$('srcDetect').textContent], { type: 'text/javascript' }));
+      w = new Worker(url, { type: 'module', name: 'detect' });
+      ready = new Promise((resolve, reject) => {
+        w.onmessage = e => {
+          const m = e.data || {};
+          if (m.type === 'ready') { URL.revokeObjectURL(url); resolve(); return; }
+          const p = wait.get(m.id);
+          if (!p) { if (m.type === 'error') reject(new Error(m.message)); return; }
+          wait.delete(m.id);
+          m.type === 'result' ? p.resolve(m) : p.reject(new Error(m.message));
+        };
+        w.onerror = e => { e.preventDefault(); reject(new Error(e.message || 'the detectors could not start')); };
+      });
+      (async () => {
+        const [ort, text, face, codes] = await Promise.all(['binOrt', 'binText', 'binFace', 'binCodes'].map(unpack));
+        w.postMessage({ type: 'init', bin: { ort, text, face, codes } }, [ort, text, face, codes]);
+      })().catch(err => { $('engineHint').textContent = 'The detectors could not start: ' + err.message; });
+      return ready;
+    }
+    return {
+      start: () => ready || start(),
+      // the picture is copied to the worker (the page keeps its own, to read the text regions from)
+      async detect(bitmap, tiles) {
+        await (ready || start());
+        const id = ++seq;
+        return new Promise((resolve, reject) => { wait.set(id, { resolve, reject }); w.postMessage({ type: 'detect', id, bitmap, tiles }); });
+      }
+    };
+  })();
+  const reader = (() => {
+    let w = null, seq = 0, ready = null;
+    const wait = new Map(), loaded = new Set();
+    function call(cmd, data, transfer) {
+      if (!w) {
+        const url = URL.createObjectURL(new Blob([$('srcOcr').textContent], { type: 'text/javascript' }));
+        w = new Worker(url, { name: 'read' });
+        w.onmessage = e => { const m = e.data || {}, p = wait.get(m.id); if (!p) return; wait.delete(m.id); m.ok ? p.res(m.result) : p.rej(new Error(m.error)); };
+        w.onerror = e => { e.preventDefault(); const err = new Error('text reading stopped: ' + (e.message || 'unknown error')); for (const p of wait.values()) p.rej(err); wait.clear(); w.terminate(); w = null; ready = null; loaded.clear(); };
+      }
+      return new Promise((res, rej) => { const id = ++seq; wait.set(id, { res, rej }); w.postMessage(Object.assign({ id, cmd }, data), transfer || []); });
+    }
+    return {
+      async read(pgm, langs) {
+        if (!ready) ready = (async () => { const wasm = new Uint8Array(await unpack('binWasm')); await call('init', { wasm }, [wasm.buffer]); })();
+        try { await ready; } catch (e) { ready = null; throw e; }
+        for (const l of langs) if (!loaded.has(l)) {
+          const data = new Uint8Array(await unpack('binLang-' + l));
+          await call('lang', { name: l, data }, [data.buffer]);
+          loaded.add(l);
+        }
+        return call('recognize', { image: pgm, langs }, [pgm.buffer]);
+      }
+    };
+  })();
+
+  // ---------- finding things in one picture ----------
+  // the text regions are cut from the full picture into one strip (text.js), read once, and the words mapped back
+  function cropper(bitmap) {
+    const c = new OffscreenCanvas(1, 1), g = c.getContext('2d', { willReadFrequently: true });
+    return (r, w, h) => {
+      c.width = w; c.height = h;
+      g.drawImage(bitmap, r.x, r.y, r.w, r.h, 0, 0, w, h);
+      const d = g.getImageData(0, 0, w, h).data, out = new Uint8Array(w * h);
+      for (let i = 0; i < out.length; i++) out[i] = (d[i * 4] * 299 + d[i * 4 + 1] * 587 + d[i * 4 + 2] * 114) / 1000;
+      return out;
+    };
   }
-  function startWorker() {
-    const url = URL.createObjectURL(new Blob([$('srcDetect').textContent], { type: 'text/javascript' }));
-    const w = new Worker(url, { type: 'module', name: 'detect' });
-    const waiting = new Map();
-    state.ready = new Promise((resolve, reject) => {
-      w.onmessage = e => {
-        const m = e.data || {};
-        if (m.type === 'ready') { URL.revokeObjectURL(url); resolve(); return; }
-        const p = waiting.get(m.id);
-        if (m.type === 'error' && !p) { reject(new Error(m.message)); return; }
-        if (!p) return;
-        waiting.delete(m.id);
-        m.type === 'result' ? p.resolve(m) : p.reject(new Error(m.message));
-      };
-      w.onerror = e => reject(new Error(e.message || 'the detection worker could not start'));
+  async function readRegions(bitmap, regions) {
+    if (!regions.length) return [];
+    const st = T.strip(regions, cropper(bitmap));
+    try {
+      const r = await reader.read(T.pgm(st), settings.langs);
+      return T.wordsBack(r.words, st);
+    } catch (e) { return null; }   // reading unavailable: regions stay as "Other text"
+  }
+  // everything found, in picture pixels: { faces, codes, regions: [{ x, y, w, h, words, readable, found }] }
+  async function find(bitmap) {
+    const r = await detector.detect(bitmap, true);
+    const words = await readRegions(bitmap, r.text);
+    const regions = r.text.map((g, i) => {
+      const ws = words ? words.filter(w => w.region === i) : [];
+      return { x: g.x, y: g.y, w: g.w, h: g.h, words: ws, readable: words ? T.readable(ws) : true, found: words ? T.findSensitive(ws) : [] };
     });
-    state.worker = { w, waiting };
-    (async () => {
-      const [ort, text, face, codes] = await Promise.all(['binOrt', 'binText', 'binFace', 'binCodes'].map(unpack));
-      w.postMessage({ type: 'init', bin: { ort, text, face, codes } }, [ort, text, face, codes]);
-    })().catch(err => { $('engineHint').textContent = 'The detectors could not start: ' + err.message; });
-    const t0 = performance.now();
-    state.ready.then(() => { $('engineHint').textContent = `Detectors ready (${fmt(performance.now() - t0)}).`; },
-      err => { $('engineHint').textContent = 'The detectors could not start: ' + err.message; });
+    return { w: r.w, h: r.h, faces: r.faces, codes: r.codes, regions, read: !!words, ms: r.ms };
   }
-  let nextId = 1;
-  function detect(bitmap, tiles) {
-    const id = nextId++;
-    return new Promise((resolve, reject) => {
-      state.worker.waiting.set(id, { resolve, reject });
-      state.worker.w.postMessage({ type: 'detect', id, bitmap, tiles }, [bitmap]);
-    });
+
+  // ---------- covers from what was found ----------
+  let nextCover = 1;
+  const union = ws => { const x0 = Math.min(...ws.map(w => w.x)), y0 = Math.min(...ws.map(w => w.y)); return { x: x0, y: y0, w: Math.max(...ws.map(w => w.x + w.w)) - x0, h: Math.max(...ws.map(w => w.y + w.h)) - y0 }; };
+  function nextTo(g, b) {
+    const ox = Math.min(g.x + g.w, b.x + b.w) - Math.max(g.x, b.x), oy = Math.min(g.y + g.h, b.y + b.h) - Math.max(g.y, b.y);
+    const gapY = Math.max(g.y - (b.y + b.h), b.y - (g.y + g.h)), gapX = Math.max(g.x - (b.x + b.w), b.x - (g.x + g.w));
+    const reach = 0.15 * Math.min(b.w, b.h) + 1.5 * g.h;   // close: a line of text or two, not the paragraph above
+    return (ox >= 0.5 * Math.min(g.w, b.w) && gapY <= reach) || (oy >= 0.5 * g.h && gapX <= reach && g.w < 2 * b.w);
   }
+  function coversFrom(pic) {
+    const f = pic.found, W = pic.w, H = pic.h, out = [];
+    const add = (cat, b) => { const p = D.pad(b, W, H); if (p.w > 0 && p.h > 0) out.push({ id: nextCover++, cat, src: 'auto', on: !!settings.cats[cat], x: p.x, y: p.y, w: p.w, h: p.h }); };
+    for (const b of f.faces) if (b.score >= FACE_MIN) add('faces', b);
+    for (const b of f.codes) add('codes', b);
+    // the text printed with a code (the booking code under a barcode, the number beside a QR code) usually says what
+    // the code holds: a text region just above, below or beside a code is covered with it
+    for (const g of f.regions) if (f.codes.some(b => nextTo(g, b))) add('codes', g);
+    for (const g of f.regions) {
+      for (const s of g.found) add(s.cat, union(s.words.map(k => g.words[k])));
+      add(g.readable ? 'text' : 'maybe', g);
+    }
+    return out;
+  }
+  // Find words: every run of words that matches, in every picture; the covers are made again when the list changes
+  function findCovers(pic) {
+    const out = [];
+    if (!pic.found || !state.words.length) return out;
+    for (const g of pic.found.regions) for (const run of T.findWords(state.words, g.words)) {
+      const p = D.pad(union(run.map(k => g.words[k])), pic.w, pic.h);
+      out.push({ id: nextCover++, cat: 'words', src: 'find', on: true, x: p.x, y: p.y, w: p.w, h: p.h });
+    }
+    return out;
+  }
+  function refreshFinds() {
+    for (const pic of state.pics) {
+      if (!pic.found) continue;
+      pic.covers = pic.covers.filter(c => c.src !== 'find').concat(findCovers(pic));
+      describe(pic);
+    }
+    if (window.RedactEditor) RedactEditor.changed();
+  }
+
+  // ---------- pictures ----------
+  const state = { pics: [], words: [], queue: Promise.resolve(), queued: 0, nativeIds: new Set(), next: 1 };
+  function counts(pic) {
+    const n = {};
+    for (const c of pic.covers) if (c.src === 'auto' || c.src === 'find') n[c.cat] = (n[c.cat] || 0) + 1;
+    return n;
+  }
+  function describe(pic) {
+    const el = pic.el; if (!el) return;
+    el.querySelector('.pic-n').textContent = `Picture ${pic.n}`;
+    const st = el.querySelector('.pic-state');
+    if (pic.error) { el.classList.add('failed'); st.textContent = pic.error; return; }
+    if (!pic.found) { st.textContent = pic.status || 'Waiting…'; return; }
+    const n = counts(pic), parts = [];
+    for (const c of CATS.concat(EXTRA)) if (n[c.id] && c.id !== 'maybe') parts.push(`${c.label} ${n[c.id]}`);
+    st.textContent = parts.length ? parts.join(' · ') : 'Nothing found: check it yourself';
+    el.querySelector('.busy-veil').hidden = true;
+  }
+  function renderList() {
+    $('picsWrap').hidden = !state.pics.length;
+    $('pics').replaceChildren(...state.pics.map(p => p.el));
+  }
+  function removePic(pic) {
+    state.pics = state.pics.filter(p => p !== pic);
+    pic.removed = true; pic.bytes = null;
+    if (pic.thumb) URL.revokeObjectURL(pic.thumb);
+    renderList();
+  }
+
+  // a picked or dropped File, or a file the Android app holds ({ native: true, id, name, size, mime, uri })
+  function addFiles(list) {
+    let skipped = 0;
+    for (const f of list) {
+      if (state.pics.length >= MAX_PICS) { skipped++; continue; }
+      const pic = { n: state.next++, name: String(f.name || 'picture'), file: f, covers: [], hist: [], fut: [], status: 'Waiting…' };
+      const el = pic.el = $('tplPic').content.firstElementChild.cloneNode(true);
+      const open = () => { if (pic.found) RedactEditor.open(pic); else if (!pic.error) toast('Still looking at this picture…'); };
+      el.querySelector('.pic-thumb').onclick = open;
+      el.querySelector('.pic-info').onclick = open;
+      el.querySelector('[data-a="remove"]').onclick = () => removePic(pic);
+      state.pics.push(pic); describe(pic);
+      state.queued++;
+      state.queue = state.queue.then(() => load(pic)).catch(() => {}).finally(() => { if (--state.queued === 0 && NATIVE) { RedactNative.release(); state.nativeIds.clear(); } });
+    }
+    renderList();
+    if (skipped) toast(`${plural(skipped, 'picture')} not opened: ${MAX_PICS} at once is the limit. Close some to open more.`);
+    if (list.length && !settings.chosen && !askedThisTime) { askedThisTime = true; firstRun(); }
+  }
+
+  async function load(pic) {
+    const el = pic.el, f = pic.file; pic.file = null;
+    const fail = msg => { pic.error = msg; el.querySelector('.busy-veil').hidden = true; describe(pic); };
+    if (pic.removed) return;
+    let bitmap = null;
+    try {
+      pic.status = 'Opening…'; describe(pic);
+      // Not f.bytes on a File: browsers give every File a bytes() method
+      let bytes;
+      if (f instanceof Blob) { if (f.size > MAX_BYTES) return fail(`Too large (over ${size(MAX_BYTES)}).`); bytes = new Uint8Array(await f.arrayBuffer()); }
+      else { bytes = await RedactNative.readOne(f); if (!bytes) return fail(`Too large (over ${size(MAX_BYTES)}).`); pic.uri = f.uri || ''; }
+      const big = P.tooLarge(bytes);
+      if (big) return fail(big.bad ? 'This picture looks damaged: its size could not be read.' : `Too large to open safely (${Math.round(big.w * big.h / 1e6)} megapixels; the limit is ${P.MAX_PIXELS / 1e6}).`);
+      const kind = P.pictureSize(bytes);
+      if (!kind || !MIME[kind.type]) return fail(kind ? `${kind.type.toUpperCase()} pictures can't be opened yet: use JPEG, PNG or WebP.` : 'Not a picture Redact can open (JPEG, PNG or WebP).');
+      pic.bytes = bytes; pic.type = kind.type;
+      bitmap = await createImageBitmap(new Blob([bytes], { type: MIME[kind.type] }), { imageOrientation: 'from-image' });
+      pic.w = bitmap.width; pic.h = bitmap.height;
+      // the thumbnail, made here and kept small
+      const s = 160 / Math.max(pic.w, pic.h), tc = new OffscreenCanvas(Math.max(1, Math.round(pic.w * s)), Math.max(1, Math.round(pic.h * s)));
+      tc.getContext('2d').drawImage(bitmap, 0, 0, tc.width, tc.height);
+      pic.thumb = URL.createObjectURL(await tc.convertToBlob({ type: 'image/jpeg', quality: 0.8 }));
+      el.querySelector('img').src = pic.thumb;
+      if (pic.removed) return;
+      pic.status = 'Looking for faces, text and codes…'; describe(pic);
+      pic.found = await find(bitmap);
+      pic.covers = coversFrom(pic).concat(findCovers(pic));
+      describe(pic);
+      if (window.RedactEditor) RedactEditor.loaded(pic);
+    } catch (e) {
+      fail('Could not open this picture: ' + (e && e.message || e));
+    } finally { if (bitmap) bitmap.close(); }
+  }
+
+  // ---------- first run: what to cover ----------
+  let askedThisTime = false;
+  function catChecks(box, onChange) {
+    box.replaceChildren(...CATS.map(c => {
+      const l = document.createElement('label'); l.className = 'check';
+      const i = document.createElement('input'); i.type = 'checkbox'; i.checked = !!settings.cats[c.id]; i.dataset.cat = c.id;
+      i.onchange = () => { settings.cats[c.id] = i.checked; if (onChange) onChange(); };
+      const sp = document.createElement('span'), b = document.createElement('b'), sw = document.createElement('i');
+      sw.className = 'swatch'; sw.style.background = `var(--c-${c.id})`;
+      b.append(sw, c.label); sp.append(b);
+      if (c.note) { const sm = document.createElement('small'); sm.textContent = c.note; sp.append(sm); }
+      l.append(i, sp); return l;
+    }));
+  }
+  function firstRun() {
+    catChecks($('firstCats'));
+    $('firstRemember').checked = settings.remember;
+    show('scrFirst');
+  }
+  $('btnFirstGo').onclick = () => {
+    settings.chosen = true; settings.remember = $('firstRemember').checked; saveSettings();
+    applyChoice();
+    show('scrHome');
+  };
+  // the choice applies to pictures not yet changed by hand
+  function applyChoice() {
+    for (const pic of state.pics) if (!pic.hist.length) for (const c of pic.covers) if (c.src === 'auto') c.on = !!settings.cats[c.cat];
+    if (window.RedactEditor) RedactEditor.changed();
+  }
+
+  // ---------- settings screen ----------
+  let settingsFrom = 'scrHome';
+  $('btnSettings').onclick = () => {
+    if (current === 'scrSettings') return;
+    settingsFrom = ['scrEdit', 'scrHome'].includes(current) ? current : 'scrHome';
+    catChecks($('setCats'), () => { saveSettings(); });
+    for (const b of $('langChips').querySelectorAll('[data-lang]')) b.setAttribute('aria-pressed', String(settings.langs.includes(b.dataset.lang)));
+    for (const b of $('formatChips').querySelectorAll('[data-format]')) b.setAttribute('aria-pressed', String(b.dataset.format === settings.format));
+    $('setRemember').checked = settings.remember;
+    show('scrSettings');
+  };
+  for (const b of $('langChips').querySelectorAll('[data-lang]')) b.onclick = () => {
+    const l = b.dataset.lang, on = settings.langs.includes(l);
+    if (on && settings.langs.length === 1) { toast('At least one language is needed.'); return; }
+    settings.langs = on ? settings.langs.filter(x => x !== l) : settings.langs.concat(l);
+    b.setAttribute('aria-pressed', String(!on)); saveSettings();
+    toast('Applies to pictures opened from now on.');
+  };
+  for (const b of $('formatChips').querySelectorAll('[data-format]')) b.onclick = () => {
+    settings.format = b.dataset.format;
+    for (const o of $('formatChips').querySelectorAll('[data-format]')) o.setAttribute('aria-pressed', String(o === b));
+    saveSettings();
+  };
+  $('setRemember').onchange = e => { settings.remember = e.target.checked; settings.chosen = settings.chosen || settings.remember; saveSettings(); };
+  $('btnSettingsBack').onclick = () => { settings.chosen = true; show(settingsFrom); if (settingsFrom === 'scrEdit') RedactEditor.changed(); };
 
   // ---------- opening pictures ----------
-  const fmt = ms => ms < 1000 ? Math.round(ms) + ' ms' : (ms / 1000).toFixed(1) + ' s';
-  function addFiles(list) {
-    for (const f of list) {
-      const item = { n: state.next++, el: $('tplResult').content.firstElementChild.cloneNode(true) };
-      item.el.querySelector('[data-a="remove"]').onclick = () => { item.el.remove(); state.items = state.items.filter(x => x !== item); };
-      item.el.querySelector('[data-a="copy"]').onclick = async e => {
-        const b = e.currentTarget;
-        try { await navigator.clipboard.writeText(item.el.querySelector('.summary').textContent); b.textContent = 'Copied'; }
-        catch { b.textContent = 'Select the text to copy it'; }
-        setTimeout(() => { b.textContent = 'Copy summary'; }, 2000);
-      };
-      item.el.querySelector('.times').textContent = `Picture ${item.n}: waiting…`;
-      $('results').prepend(item.el);
-      state.items.push(item);
-      state.queue = state.queue.then(() => run(item, f)).catch(() => {});
-    }
-  }
-
-  async function run(item, f) {
-    const el = item.el, times = el.querySelector('.times');
-    try {
-      // a picked or dropped File, or { bytes, size } from the Android app (bytes is null when it was too large to read).
-      // Not f.bytes on a File: browsers now give every File a bytes() method.
-      const isFile = f instanceof Blob;
-      if ((isFile ? f.size : f.bytes ? f.bytes.length : +f.size || 0) > MAX_BYTES || (!isFile && !f.bytes)) throw new Error('This file is too large (the limit is 60 MB).');
-      const bytes = isFile ? new Uint8Array(await f.arrayBuffer()) : f.bytes;
-      const big = P.tooLarge(bytes);
-      if (big) throw new Error(big.bad ? 'This picture looks damaged: its size could not be read.' : `This picture is too large to open safely (${(big.w * big.h / 1e6).toFixed(0)} megapixels; the limit is ${P.MAX_PIXELS / 1e6}).`);
-      const kind = P.pictureSize(bytes);
-      if (!kind || !KINDS.has(kind.type)) throw new Error('This test opens JPEG, PNG and WebP pictures only.');
-      times.textContent = `Picture ${item.n}: opening…`;
-      const t0 = performance.now();
-      const full = await createImageBitmap(new Blob([bytes]), { imageOrientation: 'from-image' });
-      const decodeMs = performance.now() - t0;
-      // the display copy, kept as plain pixels so the preview can be redrawn
-      const s = Math.min(1, SHOW_MAX / Math.max(full.width, full.height));
-      const cv = el.querySelector('canvas');
-      cv.width = Math.round(full.width * s); cv.height = Math.round(full.height * s);
-      const g = cv.getContext('2d', { willReadFrequently: true });
-      g.drawImage(full, 0, 0, cv.width, cv.height);
-      item.base = g.getImageData(0, 0, cv.width, cv.height);
-      item.scale = s;
-      times.textContent = `Picture ${item.n}: looking…`;
-      await state.ready;
-      const tiles = $('optTiles').checked;
-      const t1 = performance.now();
-      const r = await detect(full, tiles);   // the bitmap is handed over and closed by the worker
-      item.result = r; item.tiles = tiles;
-      item.ms = { decode: decodeMs, total: performance.now() - t1, ...r.ms };
-      el.querySelector('.progress').remove();
-      draw(item);
-    } catch (err) {
-      el.classList.add('failed');
-      const p = el.querySelector('.progress'); if (p) p.remove();
-      el.querySelector('canvas').remove();
-      el.querySelector('[data-a="copy"]').remove();
-      times.textContent = `Picture ${item.n}: ${err.message}`;
-      el.querySelector('.summary').textContent = '';
-      el.querySelector('.summary').hidden = true;
-    }
-  }
-
-  // ---------- showing what was found ----------
-  const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
-  function draw(item) {
-    if (!item.result) return;
-    const r = item.result, s = item.scale, el = item.el, cv = el.querySelector('canvas'), g = cv.getContext('2d');
-    const faces = r.faces.filter(f => f.score >= state.faceMin);
-    const scaled = b => ({ x: b.x * s, y: b.y * s, w: b.w * s, h: b.h * s, score: b.score });
-    if (state.look === 'outline') {
-      g.putImageData(item.base, 0, 0);
-      const lw = Math.max(2, Math.round(Math.max(cv.width, cv.height) / 400));
-      const box = (b, colour, label) => {
-        g.lineWidth = lw; g.strokeStyle = colour; g.strokeRect(b.x, b.y, b.w, b.h);
-        if (label) { g.font = `600 ${lw * 6}px sans-serif`; g.fillStyle = colour; g.fillText(label, b.x, Math.max(lw * 6, b.y - lw)); }
-      };
-      for (const b of r.text) box(scaled(b), css('--text'));
-      for (const b of r.codes) box(scaled(b), css('--code'));
-      for (const b of faces) box(scaled(b), css('--face'), b.score.toFixed(2));
-    } else {
-      // a preview of the covers on the display copy (the finished app paints them into the full picture)
-      const img = new ImageData(new Uint8ClampedArray(item.base.data), item.base.width, item.base.height);
-      const W = img.width, H = img.height, rand = () => crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296;
-      for (const b of r.text.concat(r.codes)) D.fill(img.data, W, H, D.pad(scaled(b), W, H), [0, 0, 0]);
-      for (const b of faces) {
-        const p = D.pad(scaled(b), W, H);
-        state.look === 'mosaic' ? D.mosaic(img.data, W, H, p, rand) : D.fill(img.data, W, H, p, [0, 0, 0]);
-      }
-      g.putImageData(img, 0, 0);
-    }
-    // the legend, timings and the summary to copy: counts and times only, never the file name or what was read
-    const legend = el.querySelector('.legend'); legend.textContent = '';
-    for (const [cls, n, word] of [['face', faces.length, 'Faces'], ['text', r.text.length, 'Text'], ['code', r.codes.length, 'Codes']]) {
-      const c = document.createElement('span'); c.className = 'chip ' + cls;
-      c.append(document.createElement('i'), `${word} ${n}`); legend.append(c);
-    }
-    const m = item.ms, mp = (r.w * r.h / 1e6).toFixed(1);
-    el.querySelector('.times').textContent = `Picture ${item.n}: ${r.w} × ${r.h} (${mp} MP). Faces ${fmt(m.faces)}, text ${fmt(m.text)}, codes ${fmt(m.codes)}; ${fmt(m.total)} in all.`;
-    const kinds = {}; for (const c of r.codes) kinds[c.kind] = (kinds[c.kind] || 0) + 1;
-    el.querySelector('.summary').textContent = [
-      `${APP.name} ${APP.version} detection test · ${NATIVE ? 'Android app' : 'browser'} · ${r.w}×${r.h} (${mp} MP)`,
-      `faces ${faces.length} at score ≥ ${state.faceMin.toFixed(2)}${faces.length ? ' (' + faces.map(f => f.score.toFixed(2)).join(', ') + ')' : ''}; ${r.faces.length} at ≥ ${D.FACE.minScore.toFixed(2)}; small faces ${item.tiles ? 'on' : 'off'}`,
-      `text regions ${r.text.length} · codes ${r.codes.length}${r.codes.length ? ' (' + Object.entries(kinds).map(([k, n]) => `${k} ${n}`).join(', ') + ')' : ''}`,
-      `times: open ${fmt(m.decode)}, faces ${fmt(m.faces)}, text ${fmt(m.text)}, codes ${fmt(m.codes)}, total ${fmt(m.total)}`
-    ].join('\n');
-  }
-  // ---------- controls ----------
-  for (const b of $('lookChips').querySelectorAll('[data-look]')) b.onclick = () => {
-    state.look = b.dataset.look;
-    for (const o of $('lookChips').querySelectorAll('[data-look]')) o.setAttribute('aria-pressed', String(o === b));
-    state.items.forEach(draw);
-  };
-  $('faceMin').oninput = e => {
-    state.faceMin = +e.target.value; $('faceMinOut').textContent = state.faceMin.toFixed(2);
-    state.items.forEach(draw);
-  };
+  $('photoInput').onchange = e => { addFiles([...e.target.files]); e.target.value = ''; };
   $('fileInput').onchange = e => { addFiles([...e.target.files]); e.target.value = ''; };
-  // drop pictures anywhere on the start screen (computers)
   const home = $('scrHome');
   home.addEventListener('dragover', e => { e.preventDefault(); home.classList.add('drop'); });
   home.addEventListener('dragleave', e => { if (e.target === home) home.classList.remove('drop'); });
   home.addEventListener('drop', e => { e.preventDefault(); home.classList.remove('drop'); if (e.dataTransfer && e.dataTransfer.files.length) addFiles([...e.dataTransfer.files]); });
-
-  // ---------- Android: its own picker, and pictures shared to Redact ----------
-  const nativeAdd = list => addFiles(list.map(f => ({ bytes: f.bytes, size: f.size, name: f.name })));
+  $('btnClearAll').onclick = () => {
+    if (state.pics.some(p => !p.done) && !confirm('Close all pictures? Covers you haven\'t saved are lost.')) return;
+    for (const p of state.pics.slice()) removePic(p);
+  };
+  // Android: its own picker (photos, or any file), and pictures shared to Redact
+  const nativeAdd = list => addFiles(list.filter(d => !state.nativeIds.has(d.id)).map(d => { state.nativeIds.add(d.id); return Object.assign({ native: true }, d); }));
   if (NATIVE) {
-    $('importLbl').hidden = true; $('btnPick').hidden = false;
-    $('btnPick').onclick = () => RedactNative.pickFiles().then(nativeAdd).catch(() => {});
-    RedactNative.takeShared().then(nativeAdd).catch(() => {});
-    RedactNative.onShared(() => RedactNative.takeShared().then(l => { show('scrHome'); nativeAdd(l); }).catch(() => {}));
+    $('photosLbl').hidden = $('filesLbl').hidden = true;
+    $('btnPhotosN').hidden = $('btnFilesN').hidden = false;
+    $('btnPhotosN').onclick = () => RedactNative.pickFiles('images').then(nativeAdd).catch(e => toast('Could not open the pictures: ' + (e && e.message || e)));
+    $('btnFilesN').onclick = () => RedactNative.pickFiles('any').then(nativeAdd).catch(e => toast('Could not open the files: ' + (e && e.message || e)));
+    const take = () => RedactNative.takeShared().then(l => { if (l.length) { if (current !== 'scrFirst') show('scrHome'); nativeAdd(l); } }).catch(() => {});
+    RedactNative.onShared(take);
+    take();
   }
+  // pictures exist only in memory: leaving the page (a link opens in the same tab) would lose them, so ask first
+  window.addEventListener('beforeunload', e => { if (!NATIVE && state.pics.some(p => !p.done)) { e.preventDefault(); e.returnValue = ''; } });
 
-  startWorker();
+  // ---------- about, manual, Back ----------
+  let aboutFrom = 'scrHome';
+  $('btnHome').onclick = () => show('scrHome');
+  $('btnAbout').onclick = () => { if (!['scrAbout', 'scrHelp'].includes(current)) aboutFrom = current === 'scrFirst' ? 'scrHome' : current; show('scrAbout'); };
+  $('btnAboutBack').onclick = () => show(aboutFrom);
+  $('btnHelp').onclick = $('btnHelp2').onclick = () => show('scrHelp');
+  $('btnHelpBack').onclick = () => show('scrAbout');
+  // Android's Back button: back inside the app first (MainActivity asks this)
+  window.redactBack = () => {
+    const to = { scrHelp: 'scrAbout', scrAbout: aboutFrom, scrSettings: settingsFrom, scrCheck: 'scrEdit', scrEdit: 'scrHome', scrFirst: 'scrHome' }[current];
+    if (!to) return false;
+    if (current === 'scrCheck') RedactSave.back(); else show(to);
+    return true;
+  };
+
+  detector.start().then(() => { $('engineHint').textContent = ''; }, err => { $('engineHint').textContent = 'The detectors could not start: ' + err.message; });
+  return { $, APP, CATS, EXTRA, catLabel, settings, saveSettings, state, show, toast, onShow: fn => listeners.push(fn), find, detector, refreshFinds, describe, counts, FACE_MIN, MIME, size, plural, get current() { return current; } };
 })();

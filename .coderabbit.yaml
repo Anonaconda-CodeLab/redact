@@ -17,6 +17,9 @@ reviews:
     - "!src/vendor/**"
     - "!src/models/**"
     - "!src/fonts/**"
+    - "!src/lang/**"
+    - "!src/clean.js"
+    - "!src/ocr-engine.js"
     - "!tests/fixtures/**/*.gz"
     - "!tests/fixtures/**/*.jpg"
     - "!mobile/package-lock.json"
@@ -48,7 +51,22 @@ reviews:
     - path: "src/picture.js"
       instructions: |
         An exact copy of Flatbed's picture-size check (a test compares it); changes are made in Flatbed first.
+        src/clean.js (Unmarked's cleaner) and src/ocr-engine.js (Flatbed's text-reading driver) are exact copies too,
+        reviewed in their own repositories.
+    - path: "src/text.js"
+      instructions: |
+        Patterns for card numbers (Luhn), IBANs (mod 97), Thai ID numbers (checksum), passport lines, emails, phones,
+        links and long numbers in text read by Tesseract (with reading errors), and Find words (fuzzy). Check for
+        catastrophic regular-expression backtracking on hostile text, and that matches map back to the right words.
+    - path: "src/paint.js"
+      instructions: |
+        Painting covers into RGBA pixels and checking a saved picture. Check bounds on every pixel write, that a cover
+        changes every pixel it should, and that check() can't pass a picture with original pixels left under a cover.
+    - path: "src/save.js"
+      instructions: |
+        Check and save. The new file must be made from painted pixels only, cleaned, and checked before Save or Share
+        appears; a failed check must never offer saving.
     - path: "src/app.js"
       instructions: |
-        Everything from a file is untrusted: it must never reach innerHTML. The summary must never include the file
-        name or what a picture shows.
+        Everything from a file is untrusted: it must never reach innerHTML. File names and recognised text are shown
+        only with textContent.

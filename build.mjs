@@ -23,7 +23,9 @@ const PROJECT = {
   kofi: 'anonacondacodelab', // Ko-fi username; leave empty to hide the support link
   // Android app announced on the website: the install page (dist/android.html) and the manual's [[android]] parts.
   // Off until the launch; the APK itself is built either way.
-  androidPage: false
+  androidPage: false,
+  // text-reading languages bundled with the app (src/lang/<code>.traineddata.gz), in the order shown (Flatbed's)
+  languages: [['eng', 'English'], ['fra', 'Français'], ['spa', 'Español'], ['deu', 'Deutsch'], ['tha', 'ไทย']]
 };
 const APP = { APP_NAME: PROJECT.name, VERSION: pkg.version };
 const appUrl = /^https:\/\/[\w.-]+\/?$/.test(PROJECT.appUrl) ? PROJECT.appUrl.replace(/\/$/, '') : '';
@@ -36,13 +38,18 @@ const BUILD = /^[0-9a-f]{40}$/.test(process.env.APP_BUILD_ID || '') ? process.en
 const repo = safeUrl(PROJECT.repoUrl), kofi = /^[A-Za-z0-9_]{1,60}$/.test(PROJECT.kofi) ? 'https://ko-fi.com/' + PROJECT.kofi : '';
 const about = `<div class="card" id="aboutCard">
       <div><div class="dev-name">About ${APP.APP_NAME}</div><div class="dev-meta">Version ${APP.VERSION}${BUILD ? ` · build ${BUILD}` : ''} · free and open source (GNU GPL v3) · runs entirely on this device</div></div>
-      <p class="dev-meta" style="margin:0">© 2026 Anonaconda Code Lab. You may use, share and modify this app under the GNU General Public License v3 or later; it comes with no warranty. Built with ONNX Runtime (MIT License), PaddleOCR's text detector (Apache License 2.0), the YuNet face detector (MIT License) and ZXing-C++ with zxing-wasm (Apache License 2.0, MIT License).</p>
+      <p class="dev-meta" style="margin:0">© 2026 Anonaconda Code Lab. You may use, share and modify this app under the GNU General Public License v3 or later; it comes with no warranty. Built with ONNX Runtime (MIT License), PaddleOCR's text detector (Apache License 2.0), the YuNet face detector (MIT License), ZXing-C++ with zxing-wasm (Apache License 2.0, MIT License) and Tesseract (Apache License 2.0).</p>
       ${contact ? `<p class="dev-meta" style="margin:0">Questions or problems: <a href="mailto:${contact}">${contact}</a>. A description or a screenshot of the app is usually enough; please don't send the pictures you were covering.</p>` : ''}
       <div class="acts-row"><button id="btnHelp2" class="btn">User manual</button>${appUrl && PROJECT.androidPage ? `<a class="btn native-only" href="${appUrl}/android.html?v=${APP.VERSION}" rel="noopener noreferrer">Check for updates</a>` : ''}${PROJECT.androidPage ? '<a class="btn web-only" href="/android.html">Android app</a>' : ''}${repo ? `<a class="btn" href="${repo}" rel="noopener noreferrer">Source code</a>` : ''}${kofi ? `<a class="btn coffee" href="${kofi}" rel="noopener noreferrer">☕ Support on Ko-fi</a>` : ''}</div>
     </div>`;
 
 // on the web only (hidden in the Android app): where to get the Android app, under the start screen's privacy line
 const androidLink = PROJECT.androidPage ? '<p class="web-only app-link"><a href="/android.html">Also available as an Android app →</a></p>' : '';
+// gentle donation card after a picture is saved, shown at a few usage milestones only (see save.js); same as the studio's other apps
+const donate = kofi ? `<div id="donateCard" class="card donate" hidden>
+      <p><b>Enjoying ${APP.APP_NAME}?</b><br><span class="dev-meta">You've saved <span id="donateN">20</span> pictures. No ads, no tracking. If you find this app useful, please consider making a small donation to help fund development. Thank you!</span></p>
+      <div class="acts"><a id="btnDonate" class="btn coffee" href="${kofi}" rel="noopener noreferrer">☕ Support on Ko-fi</a><button id="btnDonateLater" class="btn">Not now</button></div>
+    </div>` : '';
 const thanks = kofi ? `<p class="thanks">No ads, no tracking. If you find this app useful, please consider <a href="${kofi}" rel="noopener noreferrer">making a small donation</a> to help fund development. Thank you!</p>` : '';
 
 const src = f => readFileSync(join(root, 'src', f), 'utf8');
@@ -80,8 +87,9 @@ const manualText = readFileSync(join(root, 'docs', 'MANUAL.md'), 'utf8')
 if (/\[\[\/?android\]\]/.test(manualText)) throw new Error('Unbalanced [[android]] marker in docs/MANUAL.md');
 const manual = md(manualText);
 const b64 = f => bin(f).toString('base64');
+const langChips = PROJECT.languages.map(([c, n]) => `<button type="button" class="chip-btn" data-lang="${c}" aria-pressed="false" translate="no">${n}</button>`).join('');
 const fill = s => s.replace(/\{\{(APP_NAME|VERSION|APP_URL|APP_HOST)\}\}/g, (_, k) => APP[k]).replace('{{ABOUT}}', about)
-  .replace('{{THANKS}}', thanks).replace('{{MANUAL}}', () => manual).replace('{{ANDROID_LINK}}', androidLink);
+  .replace('{{THANKS}}', thanks).replace('{{DONATE}}', donate).replace('{{LANG_CHIPS}}', langChips).replace('{{MANUAL}}', () => manual).replace('{{ANDROID_LINK}}', androidLink);
 
 const fonts = `@font-face{font-family:"Instrument Sans";font-style:normal;font-display:swap;font-weight:400 700;font-stretch:75% 100%;src:url(data:font/woff2;base64,${b64('fonts/InstrumentSans-latin-variable.woff2')}) format("woff2-variations")}
 @font-face{font-family:"IBM Plex Mono";font-style:normal;font-display:swap;font-weight:400;src:url(data:font/woff2;base64,${b64('fonts/IBMPlexMono-latin-400.woff2')}) format("woff2")}
@@ -102,10 +110,14 @@ function ortInline(text) {
 const detectJs = noClose('detection worker', [ortInline(noMap(src('vendor/ort.wasm.bundle.min.mjs'))), noMap(src('vendor/zxing-reader.js')), src('detect.js'), src('detect-worker.js')].join('\n'));
 // the engines' WebAssembly code and the models, gzipped, as base64 (unpacked in the browser when first needed)
 const gz = f => f.endsWith('.gz') ? bin(f) : gzipSync(bin(f), { level: 9, mtime: 0 });
-const BIN = { binOrt: 'vendor/ort-wasm-simd-threaded.wasm.gz', binCodes: 'vendor/zxing_reader.wasm.gz', binText: 'models/ppocrv4-det.onnx', binFace: 'models/yunet-2023mar.onnx' };
+const BIN = { binOrt: 'vendor/ort-wasm-simd-threaded.wasm.gz', binCodes: 'vendor/zxing_reader.wasm.gz', binText: 'models/ppocrv4-det.onnx', binFace: 'models/yunet-2023mar.onnx',
+  binWasm: 'vendor/tesseract-core-simd-lstm.wasm.gz', ...Object.fromEntries(PROJECT.languages.map(([c]) => ['binLang-' + c, `lang/${c}.traineddata.gz`])) };
 const data = Object.entries(BIN).map(([id, f]) => `<script type="application/octet-stream" id="${id}">${gz(f).toString('base64')}</script>`).join('\n');
-const appJs = noClose('app', `${src('picture.js')}\n${src('detect.js')}\n${fill(src('native.js'))}\n${fill(src('app.js'))}`);
-const js = `<script type="text/plain" id="srcDetect">\n${detectJs}\n</script>\n${data}\n<script>\n${appJs}\n</script>`;
+// the text-reading worker: Flatbed's engine (Tesseract compiled to WebAssembly) and its driver, a classic worker
+const ocrJs = noClose('text reading', `${noMap(src('vendor/tesseract-core-simd-lstm.js'))}\n${src('ocr-engine.js')}`);
+const settings = `const REDACT = ${JSON.stringify({ languages: PROJECT.languages })};`;
+const appJs = noClose('app', [settings, src('picture.js'), src('detect.js'), src('text.js'), src('paint.js'), src('clean.js'), fill(src('native.js')), fill(src('app.js')), src('editor.js'), src('save.js')].join('\n'));
+const js = `<script type="text/plain" id="srcDetect">\n${detectJs}\n</script>\n<script type="text/plain" id="srcOcr">\n${ocrJs}\n</script>\n${data}\n<script>\n${appJs}\n</script>`;
 const body = fill(src('body.html'));
 const title = `<title>${APP.APP_NAME}</title>`;
 const DESC = 'Cover faces, number plates, card numbers and other details in photos and screenshots before you share them. Free, open source, and nothing leaves your device.';
@@ -195,7 +207,7 @@ ${PROJECT.androidPage ? `  <url><loc>${appUrl}/android.html</loc></url>\n` : ''}
 }
 
 // sanity checks: the scripts parse, no remote resources
-new Function(appJs);
+new Function(appJs); new Function(ocrJs);
 const stripped = page.replace(/<code>[^<]*<\/code>/g, '').replace(/<script\b[^>]*>[\s\S]*?<\/script>/g, '');
 // anything the page would load by itself (scripts, styles, images, frames) must be local; plain <a href> links are allowed
 const remote = stripped.match(/\bsrc\s*=\s*["']https?:|<link\b(?![^>]*rel="canonical")[^>]*href\s*=\s*["']https?:|url\(\s*["']?https?:/gi);

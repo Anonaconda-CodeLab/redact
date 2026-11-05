@@ -1,6 +1,7 @@
 // Copyright (C) 2026 Anonaconda Code Lab · SPDX-License-Identifier: GPL-3.0-or-later
-// Every third-party file is byte for byte the release named in tests/origins.json (and in NOTICE.md), and the
-// picture-size check is still the exact copy of Flatbed's.
+// Every third-party file is byte for byte the release named in tests/origins.json (and in NOTICE.md), and the code
+// copied from the studio's other apps (Flatbed's picture-size check and text-reading driver, Unmarked's cleaner) is
+// unchanged.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -13,13 +14,17 @@ const O = JSON.parse(file('tests/origins.json'));
 test('third-party files match their releases', () => {
   for (const [f, o] of Object.entries(O.files)) assert.equal(sha(f.endsWith('.gz') ? gunzipSync(file(f)) : file(f)), o.sha256, f);
   const listed = new Set(Object.keys(O.files));
-  for (const dir of ['src/vendor', 'src/models'])
+  for (const dir of ['src/vendor', 'src/models', 'src/lang'])
     for (const f of readdirSync(new URL('../' + dir, import.meta.url))) if (!/^LICENSE/.test(f)) assert.ok(listed.has(`${dir}/${f}`), `${dir}/${f} is listed in tests/origins.json`);
 });
 
 test("the picture-size check is Flatbed's, unchanged", () => {
   const s = file('src/picture.js').toString('utf8'), a = s.indexOf('  // A small file can declare'), b = s.indexOf('\n  const api');
   assert.equal(sha(s.slice(a, b).trimEnd()), O['picture.js'].sha256);
+});
+
+test("Unmarked's cleaner and Flatbed's text-reading driver are unchanged copies (changes are made there first)", () => {
+  for (const [f, o] of Object.entries(O.copies)) assert.equal(sha(file(f)), o.sha256, f);
 });
 
 test('NOTICE.md names every third-party file and its licence', () => {

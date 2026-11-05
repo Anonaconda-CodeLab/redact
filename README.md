@@ -5,10 +5,7 @@ Faces, number plates, house numbers, names and addresses, card and account numbe
 them, you check and add to what it found, and the covers replace the pixels themselves, so they can't be lifted off.
 No account, no server, no upload.
 
-> **Status: early test build (0.1.0).** It shows what the detectors find, so they can be checked on real phones before
-> the editor is built. Nothing is covered or saved yet. The plan: faces, text and codes suggested automatically;
-> names and addresses found from words you type; covers drawn by hand anywhere; the finished picture redrawn from
-> scratch with no hidden data, checked again before it is saved.
+> **Status: test build 0.2.0**, in testing before the first release. See `docs/MANUAL.md` for how it works.
 
 **Web app (when launched): [redact.anonacondacodelab.com](https://redact.anonacondacodelab.com)**
 
@@ -20,10 +17,17 @@ embedded in the page (gzipped) and handed to the worker as bytes: nothing is eve
 
 - `src/detect.js`: model inputs and outputs (text regions, faces, codes), merging, margins and the cover styles. Plain
   JavaScript, no dependencies; runs in the detection worker and in Node for the tests.
+- `src/text.js`: the text regions cut into one strip and read once by Tesseract (`src/ocr-engine.js`, Flatbed's), the
+  words mapped back; card numbers, IBANs, ID numbers, emails, phones, links and long numbers found in them (with
+  checksums); Find words.
+- `src/paint.js`: covers painted into the pixels (solid, colour from around, brush, face mosaic), and the pixel check of
+  a saved picture.
+- `src/editor.js`: the editor. `src/save.js`: check and save. `src/clean.js`: Unmarked's cleaner, for the hidden-data
+  check and to strip what the browser's encoder adds.
 - `src/detect-worker.js`: the module worker that runs the models with ONNX Runtime (one thread) and reads codes with
   ZXing-C++. A code's contents never leave the worker.
 - `src/picture.js`: refuses picture-size bombs from the file header before anything decodes them (Flatbed's check).
-- `src/app.js`, `src/body.html`, `src/style.css`: the page. `src/native.js`: the Android app's file picker, saving,
+- `src/app.js`, `src/body.html`, `src/style.css`: the page, opening pictures, settings. `src/native.js`: the Android app's file picker, saving,
   sharing and Share → Redact.
 - `mobile/`: the Android app ([Capacitor](https://capacitorjs.com)), no internet permission. See `mobile/README.md`.
 

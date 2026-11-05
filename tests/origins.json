@@ -33,6 +33,51 @@
    "from": "OpenCV Zoo (opencv/opencv_zoo at 48b10fa), models/face_detection_yunet/face_detection_yunet_2023mar.onnx",
    "licence": "MIT",
    "sha256": "8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4"
+  },
+  "src/vendor/tesseract-core-simd-lstm.js": {
+   "from": "npm tesseract.js-core 6.1.2, tesseract-core-simd-lstm.js (as in Flatbed 1.0.2)",
+   "licence": "Apache-2.0 (Leptonica: BSD-2-Clause)",
+   "sha256": "be3504705d7111d1d1f3f7f9dff326c26d334031ede36e31c4d3cf883027e982"
+  },
+  "src/vendor/tesseract-core-simd-lstm.wasm.gz": {
+   "from": "npm tesseract.js-core 6.1.2, tesseract-core-simd-lstm.wasm (gzipped here, as in Flatbed 1.0.2)",
+   "licence": "Apache-2.0",
+   "sha256": "187d76742dfc0d8929f0b49a619f145bb6370730776c7bd0d3e20c6b2098808d"
+  },
+  "src/lang/eng.traineddata.gz": {
+   "from": "tessdata_fast commit 8741641, eng.traineddata (gzipped here, as in Flatbed 1.0.2)",
+   "licence": "Apache-2.0",
+   "sha256": "7d4322bd2a7749724879683fc3912cb542f19906c83bcc1a52132556427170b2"
+  },
+  "src/lang/fra.traineddata.gz": {
+   "from": "tessdata_fast commit 8741641, fra.traineddata (gzipped here, as in Flatbed 1.0.2)",
+   "licence": "Apache-2.0",
+   "sha256": "ced037562e8c80c13122dece28dd477d399af80911a28791a66a63ac1e3445ca"
+  },
+  "src/lang/spa.traineddata.gz": {
+   "from": "tessdata_fast commit 8741641, spa.traineddata (gzipped here, as in Flatbed 1.0.2)",
+   "licence": "Apache-2.0",
+   "sha256": "6f2e04d02774a18f01bed44b1111f2cd7f3ba7ac9dc4373cd3f898a40ea6b464"
+  },
+  "src/lang/deu.traineddata.gz": {
+   "from": "tessdata_fast commit 8741641, deu.traineddata (gzipped here, as in Flatbed 1.0.2)",
+   "licence": "Apache-2.0",
+   "sha256": "19d219bbb6672c869d20a9636c6816a81eb9a71796cb93ebe0cb1530e2cdb22d"
+  },
+  "src/lang/tha.traineddata.gz": {
+   "from": "tessdata_fast commit 8741641, tha.traineddata (gzipped here, as in Flatbed 1.0.2)",
+   "licence": "Apache-2.0",
+   "sha256": "294227cc2d1292b0acb28d61d4115c88252b96d466ca90b417cf4cf0c67bf07c"
+  }
+ },
+ "copies": {
+  "src/clean.js": {
+   "from": "Unmarked's cleaner (Anonaconda-CodeLab/unmarked 0.1.4, commit 695a6c5), as copied into Flatbed 1.0.2",
+   "sha256": "93bc8a0ce68ecb638d3681a5876093d0d11c1ec20bccdd35304e5762a058ef45"
+  },
+  "src/ocr-engine.js": {
+   "from": "Flatbed src/ocr-engine.js, 1.0.2 (d6d08d6)",
+   "sha256": "1fbaab422ea9ba44b3fc8238c3d672eb8651244d66d8cef7233d5739d4b574f1"
   }
  }
 }
