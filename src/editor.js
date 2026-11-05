@@ -12,7 +12,8 @@ window.RedactEditor = (() => {
   const style = () => ({ colour: A.settings.colour, faces: A.settings.faces });
 
   // ---------- opening a picture ----------
-  async function open(pic) {
+  // focus: a box to zoom in on (something the check found)
+  async function open(pic, focus) {
     const token = ++ed.token;
     ed.pic = pic; ed.sel = null; ed.disp = null;
     if (ed.bmp) { ed.bmp.close(); ed.bmp = null; }
@@ -27,7 +28,13 @@ window.RedactEditor = (() => {
       g.drawImage(bm, 0, 0, w, h); bm.close();
       if (token !== ed.token) return;
       ed.disp = g.getImageData(0, 0, w, h); ed.ds = w / pic.w;
-      fitView(); await preview();
+      fitView();
+      if (focus) {   // about half the view, centred on it
+        const r = canvas.getBoundingClientRect(), f = Math.min(r.width / focus.w, r.height / focus.h) * 0.5 / ed.fit;
+        zoomAt(Math.max(1, Math.min(12, f)), ...toScreen(focus.x + focus.w / 2, focus.y + focus.h / 2));
+        ed.v.x += r.width / 2 - toScreen(focus.x + focus.w / 2, 0)[0]; ed.v.y += r.height / 2 - toScreen(0, focus.y + focus.h / 2)[1]; keepIn();
+      }
+      await preview();
     } catch (e) { A.toast('Could not show this picture: ' + (e && e.message || e)); }
     finally { if (token === ed.token) $('stageBusy').hidden = true; }
   }

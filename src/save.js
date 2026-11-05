@@ -71,20 +71,30 @@ window.RedactSave = (() => {
       $('checkSub').textContent = `Picture ${pic.n}: reading the new picture again…`;
       const f = await A.find(back); back.close();
       if (token !== cur) return;
-      const on = pic.covers.filter(c => c.on), seen = [];
-      const want = id => !!A.settings.cats[id];
-      const faces = f.faces.filter(b => b.score >= A.FACE_MIN && !on.some(c => inside(b, c)));
-      if (faces.length && (want('faces') || pic.covers.some(c => c.cat === 'faces'))) seen.push(A.plural(faces.length, 'face'));
-      if (f.codes.length) seen.push(A.plural(f.codes.length, 'readable code'));
-      const kinds = {};
-      for (const g of f.regions) for (const s of g.found) if (want(s.cat)) kinds[s.cat] = (kinds[s.cat] || 0) + 1;
-      for (const [cat, n] of Object.entries(kinds)) seen.push(`${A.catLabel(cat).toLowerCase()}: ${n}`);
-      if (A.state.words.length) {
-        let n = 0; for (const g of f.regions) n += T.findWords(A.state.words, g.words).length;
-        if (n) seen.push(`${A.plural(n, 'match', 'matches')} for your words`);
+      // Anything found in the new picture that the editor already showed (covered, or uncovered by the person on
+      // purpose) is left alone: only what was never marked is reported. It is added to the editor as an outline, so
+      // "Show me" leads straight to it.
+      const D = globalThis.RedactDetect, fresh = [];
+      const same = (b, c) => inside(b, c) || inside(c, b);
+      // already decided: under a cover, or where the person turned off a suggestion of the same kind
+      const consider = (cat, b) => { if (!pic.covers.some(c => same(b, c) && (c.on || c.cat === cat)) && !fresh.some(x => same(b, x))) fresh.push(Object.assign({ cat }, D.pad(b, W, H))); };
+      for (const b of f.faces) if (b.score >= A.FACE_MIN) consider('faces', b);
+      for (const b of f.codes) consider('codes', b);
+      const box = ws => { const x0 = Math.min(...ws.map(w => w.x)), y0 = Math.min(...ws.map(w => w.y)); return { x: x0, y: y0, w: Math.max(...ws.map(w => w.x + w.w)) - x0, h: Math.max(...ws.map(w => w.y + w.h)) - y0 }; };
+      for (const g of f.regions) {
+        for (const s of g.found) consider(s.cat, box(s.words.map(k => g.words[k])));
+        if (A.state.words.length) for (const run of T.findWords(A.state.words, g.words)) consider('words', box(run.map(k => g.words[k])));
       }
-      if (seen.length) item('warn', 'Still visible in the new picture: ' + seen.join(', ') + '.', 'Go back and cover them, unless you mean to show them. Look at the picture below too: this check finds the same kinds of things as before, not everything.');
-      else item('', 'Read again: nothing you chose to cover can be found in the new picture.', f.read ? 'Faces, codes, card, ID and phone numbers, emails and your words were looked for again. Check the picture below yourself as well.' : 'Faces and codes were looked for again (text reading isn\'t available in this browser). Check the picture below yourself.');
+      if (fresh.length) {
+        const n = {}; for (const x of fresh) n[x.cat] = (n[x.cat] || 0) + 1;
+        const what = Object.entries(n).map(([cat, k]) => cat === 'faces' ? A.plural(k, 'face') : cat === 'codes' ? A.plural(k, 'code') : cat === 'words' ? A.plural(k, 'match', 'matches') + ' for your words' : `${A.catLabel(cat).toLowerCase()}: ${k}`);
+        for (const x of fresh) pic.covers.push({ id: Date.now() + Math.random(), cat: x.cat, src: 'auto', on: false, x: x.x, y: x.y, w: x.w, h: x.h });
+        A.describe(pic);
+        item('warn', 'Found in the new picture, and not marked before: ' + what.join(', ') + '.', 'They are outlined in the editor now: Show me takes you there' + (n.faces ? '. A "face" may be nothing (a hand or a pattern taken for one): if so, leave it uncovered.' : ', and a tap covers them.'));
+        const btn = document.createElement('button'); btn.className = 'btn small'; btn.textContent = 'Show me';
+        btn.onclick = () => { cur = null; RedactEditor.open(pic, fresh[0]); };
+        $('checkList').lastElementChild.querySelector('span').append(btn);
+      } else item('', 'Read again: nothing new found in the new picture.', (f.read ? 'Faces, codes, card, ID and phone numbers, emails and your words were looked for again.' : 'Faces and codes were looked for again (text reading isn\'t available in this browser).') + ' Anything you uncovered yourself is left as you chose. Check the picture below yourself as well.');
       // 5: hidden data
       let had = [];
       try { had = ((await Clean.inspect(pic.bytes)).findings || []).filter(x => x.keep !== 'always'); } catch (e) { /* unreadable metadata: nothing to list */ }
@@ -95,7 +105,7 @@ window.RedactSave = (() => {
       const name = outName(pic, mime === 'image/png' ? 'png' : 'jpg');
       item('', `${mime === 'image/png' ? 'PNG' : 'JPEG'}, ${W} × ${H}, ${A.size(out.length)}.`, name);
       cur = { pic, bytes: out, mime, name, saved: false };
-      $('checkTitle').textContent = seen.length ? 'Ready, with something to look at' : 'Ready to save';
+      $('checkTitle').textContent = fresh.length ? 'Ready, with something to look at' : 'Ready to save';
       $('checkSub').textContent = `Picture ${pic.n}`;
       $('saveRow').hidden = false;
       $('btnSave').textContent = 'Save';

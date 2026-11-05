@@ -210,3 +210,4 @@ html.native .web-only{display:none}
 .checks li.bad::before{content:"×";background:var(--high-soft);color:var(--high)}
 .checks li small{display:block;color:var(--muted);font-size:13px;margin-top:2px}
 .center{text-align:center;margin:0}
+.checks li .btn{margin-top:8px}
