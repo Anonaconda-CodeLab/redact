@@ -66,10 +66,12 @@ const RedactApp = (() => {
     for (const fn of listeners) fn(id, was);
   }
   let toastTimer = 0;
-  function toast(msg) {
+  // act: an optional { label, fn } button in the message (such as Undo)
+  function toast(msg, act) {
     let t = document.querySelector('.toast');
     if (!t) { t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); document.body.appendChild(t); }
     t.textContent = msg; t.hidden = false;
+    if (act) { const b = document.createElement('button'); b.className = 'toast-act'; b.textContent = act.label; b.onclick = () => { t.hidden = true; act.fn(); }; t.append(b); }
     clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 4500);
   }
 

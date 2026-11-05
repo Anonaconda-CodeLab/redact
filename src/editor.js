@@ -66,7 +66,13 @@ window.RedactEditor = (() => {
       b.title = on === list.length ? 'Covered: tap to uncover all' : 'Tap to cover all';
       const lab = document.createElement('b'); lab.textContent = `${cat.label} ${list.length}`;
       b.append(document.createElement('i'), lab);
-      b.onclick = () => { remember(); const to = on !== list.length; for (const c of list) c.on = to; changed(); };
+      b.onclick = () => {
+        remember(); const to = on !== list.length, n = list.filter(c => c.on !== to).length;
+        for (const c of list) c.on = to;
+        changed();
+        // a whole category at once is a big change: say so, with a way back
+        A.toast(`${cat.label}: ${A.plural(n, 'cover')} ${to ? 'added' : 'removed'}.`, { label: 'Undo', fn: () => $('btnUndo').click() });
+      };
       chips.push(b);
     }
     if (!chips.length) { const p = document.createElement('span'); p.className = 'dev-meta'; p.textContent = 'Nothing was found. Check the picture and cover anything with Box or Brush.'; chips.push(p); }
