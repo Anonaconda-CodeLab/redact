@@ -133,15 +133,17 @@ window.RedactSave = (() => {
   const TYPES = { 'image/png': { description: 'PNG picture', accept: { 'image/png': ['.png'] } }, 'image/jpeg': { description: 'JPEG picture', accept: { 'image/jpeg': ['.jpg', '.jpeg'] } }, 'text/plain': { description: 'Text file', accept: { 'text/plain': ['.txt'] } } };
   async function saveAs(name, bytes, mime, startIn) {
     try {
-      if (NATIVE) { const r = await RedactNative.saveFile(name, bytes, mime, startIn); if (!r.saved) return false; A.toast('Saved.'); return true; }
+      if (NATIVE) { const r = await RedactNative.saveFile(name, bytes, mime, startIn); if (!r.saved) return false; A.toast('Saved.'); return 'saved'; }
       if (typeof window.showSaveFilePicker === 'function') {
         let handle;
         try { handle = await window.showSaveFilePicker({ suggestedName: name, id: 'redact-save', startIn: 'pictures', types: TYPES[mime] ? [TYPES[mime]] : undefined }); }
         catch (e) { if (e && e.name === 'AbortError') return false; handle = null; }
-        if (handle) { const w = await handle.createWritable(); await w.write(new Blob([bytes], { type: mime })); await w.close(); A.toast(`Saved as ${handle.name}.`); return true; }
+        if (handle) { const w = await handle.createWritable(); await w.write(new Blob([bytes], { type: mime })); await w.close(); A.toast(`Saved as ${handle.name}.`); return 'saved'; }
       }
+      // a plain download: the browser may still ask where to save it, and the page never learns whether the person
+      // went ahead or cancelled, so it is not called saved
       download(name, bytes, mime);
-      return true;
+      return 'download';
     } catch (e) { if (!e || e.name !== 'AbortError') A.toast('Could not save: ' + (e && e.message || e)); return false; }
   }
   const canShare = mime => NATIVE || (() => { try { return !!(navigator.canShare && navigator.canShare({ files: [new File([new Uint8Array(1)], 'x', { type: mime })] })); } catch (e) { return false; } })();
@@ -154,9 +156,12 @@ window.RedactSave = (() => {
   }
   $('btnSave').onclick = async () => {
     const r = cur; if (!r || !r.bytes) return;
-    if (await saveAs(r.name, r.bytes, r.mime, r.pic.uri)) {
-      if (!NATIVE && typeof window.showSaveFilePicker !== 'function') $('saveHint').textContent = 'It\'s in your browser\'s Downloads folder.';
-      saved();
+    const how = await saveAs(r.name, r.bytes, r.mime, r.pic.uri);
+    if (how === 'saved') { $('saveHint').textContent = ''; saved(); }
+    else if (how === 'download') {
+      $('saveHint').textContent = 'Handed to your browser to download. If it asked and you cancelled, tap Save again.';
+      const next = A.state.pics.find(p => p.found && !p.done && p !== r.pic);
+      $('btnCheckNext').hidden = !next;
     }
   };
   $('btnShare').onclick = async () => {
