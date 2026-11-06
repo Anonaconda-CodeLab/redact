@@ -62,7 +62,8 @@ Names and addresses can't be recognised as such. Type them in **Find words** and
 - **Black**, **White**, or **Colour from around**: the colour of what surrounds each cover (the paper, the screen's
   background). Colour from around makes a screenshot look as if the details were never there.
 - **Faces: Mosaic** covers faces with large blocks of colour instead. It hides the face but still shows hair, skin
-  tone and outline: for anyone who must not be recognised, use **Solid**. Text is always covered solid, because blurred
+  tone and outline, and software can sometimes recognise a face through a mosaic: for anyone who must not be
+  recognised, use **Solid**. Text is always covered solid, because blurred
   or pixelated text can be read back.
 
 ### Find words
@@ -87,8 +88,9 @@ When you tap **Check and save**, Redact:
    the phone, the date and time).
 
 Then look at the picture yourself, and tap **Save** or **Share**. Screenshots and other PNG pictures are saved as PNG
-(sharp text), photos as JPEG; **Settings** can change this. The new file is named after the original with
-`-redacted` added.
+(sharp text), photos as JPEG; **Settings** can change this. The new file gets a plain name such as `redacted-1.jpg`: a
+file's name goes with it, and camera names say when a photo was taken. **Settings** can keep the original name instead
+(with `-redacted` added).
 [[android]]In the Android app, the save screen opens in the original's folder.
 [[/android]]
 
@@ -110,6 +112,7 @@ Cover these by hand with **Box** or **Brush**.
 - **Languages of the text to read**: English, French, Spanish, German and Thai. Numbers, emails and web addresses are
   found in any of them; names in your words need the right language. Each extra language makes reading slower.
 - **Save as**: the same kind as the original, PNG or JPEG.
+- **Names of saved pictures**: plain (`redacted-1.jpg`, the default) or the original name with `-redacted` added.
 - **Remember these settings on this device**: without it, settings last until you close Redact.
 
 ## Privacy

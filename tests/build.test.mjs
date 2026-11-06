@@ -54,11 +54,13 @@ test('everything is inlined: engines, models, five languages, app', () => {
 });
 
 test('the screens, the two ways in, the donation card', () => {
-  for (const id of ['scrHome', 'scrFirst', 'scrEdit', 'scrCheck', 'scrSettings', 'scrAbout', 'scrHelp', 'photoInput', 'fileInput', 'stage', 'findForm', 'btnCheck', 'btnSave', 'donateCard', 'langChips'])
+  for (const id of ['scrHome', 'scrFirst', 'scrEdit', 'scrCheck', 'scrSettings', 'scrAbout', 'scrHelp', 'photoInput', 'fileInput', 'stage', 'findForm', 'btnCheck', 'btnSave', 'donateCard', 'langChips', 'nameChips'])
     assert.ok(html.includes(`id="${id}"`), id);
   assert.match(html, /<input type="file" id="photoInput" multiple accept="image\/jpeg,image\/png,image\/webp/, 'Open photos: pictures only (the photo picker)');
   assert.match(html, /<input type="file" id="fileInput" multiple>/, 'Browse files: any file, any folder (Redact refuses what isn\'t a picture)');
   for (const l of ['eng', 'fra', 'spa', 'deu', 'tha']) assert.ok(html.includes(`data-lang="${l}"`), l);
+  assert.match(html, /data-names="plain" aria-pressed="true"/, 'plain names are the default (security review 3)');
+  assert.match(html, /settings = \{[^}]*names: 'plain'/, 'and in the settings');
 });
 
 test('the Android page and its links are off until the launch', () => {

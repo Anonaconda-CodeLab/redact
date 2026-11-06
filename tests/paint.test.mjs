@@ -88,3 +88,20 @@ test('check: a cover that did not come out is caught, exactly for PNG and beyond
   const q = Paint.paint(copy(o), [{ id: 2, cat: 'faces', on: true, x: 40, y: 20, w: 40, h: 30 }], { colour: 'black', faces: 'mosaic' }, rand, 1);
   assert.ok(!Paint.check(o, o, q, 0).ok);
 });
+
+test('coverage: a find counts as covered only when most of it is under covers that are on (security review 2)', () => {
+  const face = { x: 100, y: 100, w: 100, h: 120 };
+  const C = (on, x, y, w, h) => ({ id: Math.random(), cat: 'hand', on, x, y, w, h });
+  assert.equal(Paint.coverage(face, []), 0);
+  assert.equal(Paint.coverage(face, [C(true, 90, 90, 130, 140)]), 1, 'all of it');
+  const half = Paint.coverage(face, [C(true, 100, 100, 100, 60)]);
+  assert.ok(Math.abs(half - 0.5) < 0.05, `half covered: ${half}`);
+  assert.ok(Paint.coverage(face, [C(true, 95, 130, 110, 25)]) < 0.3, 'a bar over the eyes');
+  assert.equal(Paint.coverage(face, [C(false, 90, 90, 130, 140)]), 0, 'a cover that is off covers nothing');
+  // two covers that together hide it
+  assert.equal(Paint.coverage(face, [C(true, 90, 90, 130, 75), C(true, 90, 160, 130, 70)]), 1);
+  // a brush stroke counts by its painted width, not its whole box
+  const stroke = { id: 1, cat: 'hand', on: true, pts: [[100, 160], [200, 160]], r: 10, x: 90, y: 150, w: 120, h: 20 };
+  const s = Paint.coverage(face, [stroke]);
+  assert.ok(s > 0.1 && s < 0.25, `a 20-pixel stroke across a 120-pixel face: ${s}`);
+});

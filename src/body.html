@@ -125,7 +125,7 @@
           <button type="button" class="chip-btn" data-faces="solid" aria-pressed="true">Solid, like the rest</button>
           <button type="button" class="chip-btn" data-faces="mosaic" aria-pressed="false">Mosaic</button>
         </div>
-        <p class="dev-meta small-note" id="mosaicNote" hidden>A mosaic hides the face but still shows hair, skin tone and outline. For anyone who must not be recognised, use solid. Text is always covered solid: blurred text can be read back.</p>
+        <p class="dev-meta small-note" id="mosaicNote" hidden>A mosaic hides the face but still shows hair, skin tone and outline, and software can sometimes recognise a face through a mosaic. For anyone who must not be recognised, use solid. Text is always covered solid: blurred text can be read back.</p>
       </div>
     </div>
     <details class="card finder" id="finder">
@@ -172,6 +172,14 @@
           <button type="button" class="chip-btn" data-format="jpeg" aria-pressed="false">JPEG</button>
         </div>
         <p class="dev-meta small-note">Same kind: PNG stays PNG (sharp text in screenshots); JPEG and WebP photos become JPEG.</p>
+      </div>
+      <div>
+        <p class="opt-lbl">Names of saved pictures</p>
+        <div class="chips" id="nameChips">
+          <button type="button" class="chip-btn" data-names="plain" aria-pressed="true">Plain: redacted-1.jpg</button>
+          <button type="button" class="chip-btn" data-names="original" aria-pressed="false">Original name + "-redacted"</button>
+        </div>
+        <p class="dev-meta small-note">A file's name goes with it. Camera names say when a photo was taken (IMG_20261024_143512), and your own names may say what it shows.</p>
       </div>
     </div>
     <label class="check"><input type="checkbox" id="setRemember"><span><b>Remember these settings on this device</b><small>Without it they last until you close {{APP_NAME}}, and it asks what to cover next time.</small></span></label>

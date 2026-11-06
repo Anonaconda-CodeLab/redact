@@ -35,7 +35,7 @@ const RedactApp = (() => {
 
   // ---------- settings: kept only when the person asks ----------
   const SET_KEY = 'redact.settings';
-  const settings = { cats: Object.fromEntries(CATS.map(c => [c.id, c.on])), langs: ['eng'], format: 'auto', colour: 'black', faces: 'solid', remember: false, chosen: false };
+  const settings = { cats: Object.fromEntries(CATS.map(c => [c.id, c.on])), langs: ['eng'], format: 'auto', names: 'plain', colour: 'black', faces: 'solid', remember: false, chosen: false };
   try {
     const s = JSON.parse(localStorage.getItem(SET_KEY) || 'null');
     if (s && typeof s === 'object') {
@@ -43,6 +43,7 @@ const RedactApp = (() => {
       const langs = (Array.isArray(s.langs) ? s.langs : []).filter(l => REDACT.languages.some(([c]) => c === l));
       if (langs.length) settings.langs = langs;
       if (['auto', 'png', 'jpeg'].includes(s.format)) settings.format = s.format;
+      if (['plain', 'original'].includes(s.names)) settings.names = s.names;
       if (['black', 'white', 'around'].includes(s.colour)) settings.colour = s.colour;
       if (['solid', 'mosaic'].includes(s.faces)) settings.faces = s.faces;
       settings.remember = settings.chosen = true;
@@ -50,7 +51,7 @@ const RedactApp = (() => {
   } catch (e) { /* storage off: defaults, and the first-run question */ }
   function saveSettings() {
     try {
-      if (settings.remember) localStorage.setItem(SET_KEY, JSON.stringify({ cats: settings.cats, langs: settings.langs, format: settings.format, colour: settings.colour, faces: settings.faces }));
+      if (settings.remember) localStorage.setItem(SET_KEY, JSON.stringify({ cats: settings.cats, langs: settings.langs, format: settings.format, names: settings.names, colour: settings.colour, faces: settings.faces }));
       else localStorage.removeItem(SET_KEY);
     } catch (e) { /* storage off */ }
   }
@@ -332,6 +333,7 @@ const RedactApp = (() => {
     catChecks($('setCats'), () => { saveSettings(); });
     for (const b of $('langChips').querySelectorAll('[data-lang]')) b.setAttribute('aria-pressed', String(settings.langs.includes(b.dataset.lang)));
     for (const b of $('formatChips').querySelectorAll('[data-format]')) b.setAttribute('aria-pressed', String(b.dataset.format === settings.format));
+    for (const b of $('nameChips').querySelectorAll('[data-names]')) b.setAttribute('aria-pressed', String(b.dataset.names === settings.names));
     $('setRemember').checked = settings.remember;
     show('scrSettings');
   };
@@ -345,6 +347,11 @@ const RedactApp = (() => {
   for (const b of $('formatChips').querySelectorAll('[data-format]')) b.onclick = () => {
     settings.format = b.dataset.format;
     for (const o of $('formatChips').querySelectorAll('[data-format]')) o.setAttribute('aria-pressed', String(o === b));
+    saveSettings();
+  };
+  for (const b of $('nameChips').querySelectorAll('[data-names]')) b.onclick = () => {
+    settings.names = b.dataset.names;
+    for (const o of $('nameChips').querySelectorAll('[data-names]')) o.setAttribute('aria-pressed', String(o === b));
     saveSettings();
   };
   $('setRemember').onchange = e => { settings.remember = e.target.checked; settings.chosen = settings.chosen || settings.remember; saveSettings(); };

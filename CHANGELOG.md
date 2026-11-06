@@ -18,6 +18,10 @@
     outlines it in the editor and leads there with Show me.
 - While the page loads (about 15 MB of detectors and languages): spectacles being polished, "Cleaning our redaction
   spectacles so we don't miss anything…", and a progress bar that follows the real download.
+- Security review fixes: the re-check counts a find as covered only when at least 80 % of it is under covers (a bar
+  over the eyes no longer counts); saved pictures get plain names by default (`redacted-1.jpg`), with the original name
+  as a setting; the face mosaic is coarser (about 5 blocks across) and its note says software can sometimes see through
+  it.
 - The check's warnings: Leave it accepts what was found as it is; Show me goes to it.
 - Category buttons wrap (no sideways scrolling); changing a whole category says so, with Undo.
 - Only a confirmed save marks a picture saved (a browser download may be cancelled where the page can't see it).

@@ -22,7 +22,10 @@ window.RedactSave = (() => {
     li.append(sp);
     $('checkList').append(li);
   }
+  // A plain name by default (redacted-3.jpg): an original name can say when the photo was taken (IMG_20261024_143512)
+  // or what it shows (passport-jane-doe), and it travels with the picture. Settings can keep the original name.
   function outName(pic, ext) {
+    if (A.settings.names !== 'original') return `redacted-${pic.n}.${ext}`;
     const base = pic.name.replace(/\.[^.]{1,5}$/, '').replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_').slice(0, 80) || 'picture';
     return `${base}-redacted.${ext}`;
   }
@@ -76,8 +79,12 @@ window.RedactSave = (() => {
       // "Show me" leads straight to it.
       const D = globalThis.RedactDetect, fresh = [];
       const same = (b, c) => inside(b, c) || inside(c, b);
-      // already decided: under a cover, or where the person turned off a suggestion of the same kind
-      const consider = (cat, b) => { if (!pic.covers.some(c => same(b, c) && (c.on || c.cat === cat)) && !fresh.some(x => same(b, x))) fresh.push(Object.assign({ cat }, D.pad(b, W, H))); };
+      // already decided: at least 80 % of it under covers that are on (a bar over the eyes or a box over half a number
+      // is not enough), or where the person turned off a suggestion of the same kind
+      const consider = (cat, b) => {
+        const covered = Paint.coverage(b, pic.covers) >= 0.8, declined = pic.covers.some(c => !c.on && c.cat === cat && same(b, c));
+        if (!covered && !declined && !fresh.some(x => same(b, x))) fresh.push(Object.assign({ cat }, D.pad(b, W, H)));
+      };
       for (const b of f.faces) if (b.score >= A.FACE_MIN) consider('faces', b);
       for (const b of f.codes) consider('codes', b);
       const box = ws => { const x0 = Math.min(...ws.map(w => w.x)), y0 = Math.min(...ws.map(w => w.y)); return { x: x0, y: y0, w: Math.max(...ws.map(w => w.x + w.w)) - x0, h: Math.max(...ws.map(w => w.y + w.h)) - y0 }; };

@@ -163,11 +163,11 @@
     }
   }
 
-  // about seven blocks across the face, each one colour (its average) plus random noise, so the blocks can't be
+  // about five blocks across the face, each one colour (its average) plus random noise, so the blocks can't be
   // matched back to a face by trying candidates. Text never gets this style: blurred or pixelated text can be read back.
   function mosaic(rgba, W, H, b, rand) {
     const { x0, y0, x1, y1 } = clip(b, W, H);
-    const k = Math.max(6, Math.round(Math.min(x1 - x0, y1 - y0) / 7));
+    const k = Math.max(6, Math.round(Math.min(x1 - x0, y1 - y0) / 5));
     for (let by = y0; by < y1; by += k) for (let bx = x0; bx < x1; bx += k) {
       const ex = Math.min(x1, bx + k), ey = Math.min(y1, by + k);
       let r = 0, g = 0, bl = 0, n = 0;

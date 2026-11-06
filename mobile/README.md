@@ -18,7 +18,11 @@ starts, and exposed only to the app chosen in the share sheet.
 
 While the repository is private, GitHub builds a test APK on each push to `test` (`.github/workflows/android-debug.yml`,
 attached to the run as an artifact): a separate app, "Redact (test)" (`com.anonacondacodelab.redact.test`), signed with
-the public test key `test.keystore` (password `android`; for test builds only), so each test APK updates the last. Once it is public, `android.yml` signs
+the public test key `test.keystore` (password `android`; for test builds only), so each test APK updates the last.
+The key is public on purpose, so test builds need no secrets while the repository is private; that is also why anyone
+could sign an update to "Redact (test)". It must never sign anything but test builds of `com.anonacondacodelab.redact.test`
+(a test checks that release builds can't use it), test APKs are never linked or published, and "Redact (test)" is
+uninstalled and this workflow retired (or limited to manual runs) at launch. Once it is public, `android.yml` signs
 with the studio's key through the protected `signing` environment, as in the studio's other apps. To build locally you need Node 22, JDK 21 and the Android SDK:
 
 ```

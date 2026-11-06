@@ -99,5 +99,25 @@
     return { ok: !problems.length, problems };
   }
 
-  root.RedactPaint = { paint, check, around };
+  // How much of a box lies under the covers that are on, from 0 to 1, sampled on a 24 x 24 grid (boxes and brush
+  // strokes alike). Used by the re-check: a find counts as covered only when most of it is.
+  function coverage(b, covers) {
+    const on = covers.filter(c => c.on && c.w > 0 && c.h > 0), N = 24;
+    if (!on.length || !(b.w > 0 && b.h > 0)) return 0;
+    const under = (x, y) => on.some(c => {
+      if (x < c.x || x > c.x + c.w || y < c.y || y > c.y + c.h) return false;
+      if (!c.pts) return true;
+      for (let i = 0; i < c.pts.length; i++) {
+        const [ax, ay] = c.pts[i], [bx, by] = c.pts[Math.min(i + 1, c.pts.length - 1)], dx = bx - ax, dy = by - ay, L = dx * dx + dy * dy;
+        const t = L ? Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / L)) : 0, qx = ax + t * dx - x, qy = ay + t * dy - y;
+        if (qx * qx + qy * qy <= c.r * c.r) return true;
+      }
+      return false;
+    });
+    let n = 0;
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) if (under(b.x + (i + 0.5) * b.w / N, b.y + (j + 0.5) * b.h / N)) n++;
+    return n / (N * N);
+  }
+
+  root.RedactPaint = { paint, check, around, coverage };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
