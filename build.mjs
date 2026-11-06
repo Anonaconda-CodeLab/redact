@@ -112,12 +112,22 @@ const detectJs = noClose('detection worker', [ortInline(noMap(src('vendor/ort.wa
 const gz = f => f.endsWith('.gz') ? bin(f) : gzipSync(bin(f), { level: 9, mtime: 0 });
 const BIN = { binOrt: 'vendor/ort-wasm-simd-threaded.wasm.gz', binCodes: 'vendor/zxing_reader.wasm.gz', binText: 'models/ppocrv4-det.onnx', binFace: 'models/yunet-2023mar.onnx',
   binWasm: 'vendor/tesseract-core-simd-lstm.wasm.gz', ...Object.fromEntries(PROJECT.languages.map(([c]) => ['binLang-' + c, `lang/${c}.traineddata.gz`])) };
-const data = Object.entries(BIN).map(([id, f]) => `<script type="application/octet-stream" id="${id}">${gz(f).toString('base64')}</script>`).join('\n');
+// Loading progress: the page arrives top to bottom and a short inline script runs as soon as it arrives, so a marker
+// after each large part moves the loader's bar (by its share of the bytes) and names the next part, with a smile
+const STEPS = { srcDetect: 'Fetching the detectors…', srcOcr: 'Waking the text reader…', binOrt: 'Oiling the engine…', binText: 'Polishing the lens for text…',
+  binFace: 'Polishing the lens for faces…', binCodes: 'Learning to read barcodes…', binWasm: 'Sharpening the reading glasses…', 'binLang-eng': 'Brushing up on English…',
+  'binLang-fra': 'Révisant le français…', 'binLang-spa': 'Repasando el español…', 'binLang-deu': 'Deutsch auffrischen…', 'binLang-tha': 'ทบทวนภาษาไทย…' };
+const parts = Object.entries(BIN).map(([id, f]) => [id, `<script type="application/octet-stream" id="${id}">${gz(f).toString('base64')}</script>`]);
+const mark = (done, next) => `<script>window.redactLoading&&redactLoading(${done.toFixed(3)},${JSON.stringify(STEPS[next] || 'Almost there…')})</script>`;
+const loaderJs = `<script>window.redactLoading=function(f,t){var b=document.getElementById('loadBar'),s=document.getElementById('loadStep');if(b)b.style.width=Math.round(f*100)+'%';if(s)s.textContent=t};</script>`;
 // the text-reading worker: Flatbed's engine (Tesseract compiled to WebAssembly) and its driver, a classic worker
 const ocrJs = noClose('text reading', `${noMap(src('vendor/tesseract-core-simd-lstm.js'))}\n${src('ocr-engine.js')}`);
 const settings = `const REDACT = ${JSON.stringify({ languages: PROJECT.languages })};`;
 const appJs = noClose('app', [settings, src('picture.js'), src('detect.js'), src('text.js'), src('paint.js'), src('clean.js'), fill(src('native.js')), fill(src('app.js')), src('editor.js'), src('save.js')].join('\n'));
-const js = `<script type="text/plain" id="srcDetect">\n${detectJs}\n</script>\n<script type="text/plain" id="srcOcr">\n${ocrJs}\n</script>\n${data}\n<script>\n${appJs}\n</script>`;
+const blocks = [['srcDetect', `<script type="text/plain" id="srcDetect">\n${detectJs}\n</script>`], ['srcOcr', `<script type="text/plain" id="srcOcr">\n${ocrJs}\n</script>`], ...parts];
+const total = blocks.reduce((n, [, b]) => n + b.length, 0);
+let sofar = 0;
+const js = loaderJs + '\n' + mark(0, blocks[0][0]) + '\n' + blocks.map(([, b], i) => { sofar += b.length; return b + '\n' + mark(sofar / total, (blocks[i + 1] || [])[0]); }).join('\n') + `\n<script>\n${appJs}\n</script>`;
 const body = fill(src('body.html'));
 const title = `<title>${APP.APP_NAME}</title>`;
 const DESC = 'Cover faces, number plates, card numbers and other details in photos and screenshots before you share them. Free, open source, and nothing leaves your device.';

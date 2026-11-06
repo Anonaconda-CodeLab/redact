@@ -16,6 +16,8 @@
     checked pixel by pixel, looked at and read again, and checked for hidden data (Unmarked's cleaner) before it can be
     saved or shared. The re-check reports only what the editor never marked (not what was uncovered on purpose),
     outlines it in the editor and leads there with Show me.
+- While the page loads (about 15 MB of detectors and languages): spectacles being polished, "Cleaning our redaction
+  spectacles so we don't miss anything…", and a progress bar that follows the real download.
 - The check's warnings: Leave it accepts what was found as it is; Show me goes to it.
 - Category buttons wrap (no sideways scrolling); changing a whole category says so, with Undo.
 - Only a confirmed save marks a picture saved (a browser download may be cancelled where the page can't see it).

@@ -390,6 +390,14 @@ const RedactApp = (() => {
     return true;
   };
 
+  // the page has fully arrived: the spectacles make way for the buttons
+  (() => {
+    const l = $('loader'); if (!l) return;
+    window.redactLoading && window.redactLoading(1, 'All clean.');
+    $('addRow').hidden = false; $('addRow').classList.add('arrive');
+    l.classList.add('done');
+    setTimeout(() => l.remove(), matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 450);
+  })();
   detector.start().then(() => { $('engineHint').textContent = ''; }, err => { $('engineHint').textContent = 'The detectors could not start: ' + err.message; });
   return { $, APP, CATS, EXTRA, catLabel, settings, saveSettings, state, show, toast, onShow: fn => listeners.push(fn), find, detector, refreshFinds, describe, counts, FACE_MIN, MIME, size, plural, get current() { return current; } };
 })();
