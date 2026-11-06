@@ -19,6 +19,15 @@ android {
     // Release signing comes from environment variables (set by the GitHub build); without them the APK is unsigned.
     def ks = System.getenv("LEADONE_KEYSTORE")
     signingConfigs {
+        // Test builds: a separate app ("Redact (test)", com.anonacondacodelab.redact.test) signed with a fixed key kept
+        // in the repository, so each test APK updates the previous one. The key signs test builds only: it is public,
+        // and release builds never use it (they are signed with the studio's key in the protected signing environment).
+        test {
+            storeFile file('../test.keystore')
+            storePassword 'android'
+            keyAlias 'redacttest'
+            keyPassword 'android'
+        }
         release {
             if (ks) {
                 storeFile file(ks)
@@ -33,6 +42,10 @@ android {
         includeInBundle = false
     }
     buildTypes {
+        debug {
+            applicationIdSuffix '.test'
+            signingConfig signingConfigs.test
+        }
         release {
             if (ks) signingConfig signingConfigs.release
             minifyEnabled false

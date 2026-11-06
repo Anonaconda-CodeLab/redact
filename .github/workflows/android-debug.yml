@@ -1,10 +1,11 @@
 name: Android test APK (debug key)
 # While the repository is private, GitHub can't protect the "signing" environment with the owner's approval, so the
-# studio's key is never used for Redact yet. This builds a test APK signed with a throwaway debug key instead:
-# installable for trying the app, never published as a release, and never an update to the official app (Android sees
-# a different signer). Each run makes a new debug key, so uninstall the previous test APK before installing a new one.
+# studio's key is never used for Redact yet. This builds a test APK instead: a separate app, "Redact (test)"
+# (com.anonacondacodelab.redact.test), signed with the public test key in mobile/android/test.keystore. Each test APK
+# updates the previous one, it installs beside the official app, and it can never update the official app. Never
+# published as a release.
 # Runs on each push to test, or by hand (Actions > this workflow > Run workflow). The APK is attached to the run page as
-# an artifact for 14 days. Remove this workflow once the repository is public and the signing environment is set up.
+# an artifact for 14 days.
 #
 # Read-only, no secrets; actions pinned to exact commits (the comment names the release), as in android.yml.
 on:
@@ -54,7 +55,7 @@ jobs:
             echo "::error title=Android build failed::$msg"
             exit "$status"
           fi
-      - name: Check the APK (no internet permission, the right version)
+      - name: Check the APK (no internet permission, the right version, the test app id)
         env:
           VER: ${{ steps.ver.outputs.version }}
         run: |
@@ -65,10 +66,12 @@ jobs:
           if grep -q "android.permission.INTERNET" perms.txt; then echo "::error::INTERNET permission found"; exit 1; fi
           APKVER=$("$BT/aapt2" dump badging "$APK" | sed -n "s/.*versionName='\([^']*\)'.*/\1/p" | head -1)
           if [ "$APKVER" != "$VER" ]; then echo "::error::APK versionName $APKVER differs from package.json version $VER"; exit 1; fi
-          cp "$APK" "Redact-$VER-debug-${GITHUB_SHA::7}.apk"
-          sha256sum "Redact-$VER-debug-${GITHUB_SHA::7}.apk"
+          PKG=$("$BT/aapt2" dump badging "$APK" | sed -n "s/^package: name='\([^']*\)'.*/\1/p")
+          if [ "$PKG" != "com.anonacondacodelab.redact.test" ]; then echo "::error::test APK has package $PKG, not com.anonacondacodelab.redact.test"; exit 1; fi
+          cp "$APK" "Redact-test-$VER-${GITHUB_SHA::7}.apk"
+          sha256sum "Redact-test-$VER-${GITHUB_SHA::7}.apk"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9   # v7.0.2
         with:
-          name: Redact-${{ steps.ver.outputs.version }}-debug-apk
-          path: Redact-*-debug-*.apk
+          name: Redact-test-${{ steps.ver.outputs.version }}-apk
+          path: Redact-test-*.apk
           retention-days: 14

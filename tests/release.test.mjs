@@ -79,3 +79,13 @@ test('versions agree: package.json, mobile/package.json, build.gradle, CHANGELOG
   assert.match(r('CHANGELOG.md'), new RegExp(`^## ${v.replace(/\./g, '\\.')}$`, 'm'));
   assert.match(r('mobile/android/gradle/wrapper/gradle-wrapper.properties'), /^distributionSha256Sum=[0-9a-f]{64}$/m);
 });
+
+test('test builds: a separate app with the public test key; release builds never use it', () => {
+  const g = r('mobile/android/app/build.gradle');
+  const debug = /\n        debug \{([\s\S]*?)\n        \}/.exec(g)[1], release = /\n        release \{\n            if \(ks\) signingConfig([\s\S]*?)\n        \}/.exec(g)[0];
+  assert.match(debug, /applicationIdSuffix '\.test'/); assert.match(debug, /signingConfig signingConfigs\.test/);
+  assert.ok(!/signingConfigs\.test/.test(release), 'release is never signed with the test key');
+  assert.match(r('mobile/android/app/src/debug/res/values/strings.xml'), /<string name="app_name">Redact \(test\)<\/string>/);
+  assert.match(r('.github/workflows/android-debug.yml'), /com\.anonacondacodelab\.redact\.test/);
+  assert.match(r('.gitignore'), /^\*\.keystore$[\s\S]*^!mobile\/android\/test\.keystore$/m, 'only the test key is an exception');
+});

@@ -91,9 +91,18 @@ window.RedactSave = (() => {
         for (const x of fresh) pic.covers.push({ id: Date.now() + Math.random(), cat: x.cat, src: 'auto', on: false, x: x.x, y: x.y, w: x.w, h: x.h });
         A.describe(pic);
         item('warn', 'Found in the new picture, and not marked before: ' + what.join(', ') + '.', 'They are outlined in the editor now: Show me takes you there' + (n.faces ? '. A "face" may be nothing (a hand or a pattern taken for one): if so, leave it uncovered.' : ', and a tap covers them.'));
-        const btn = document.createElement('button'); btn.className = 'btn small'; btn.textContent = 'Show me';
-        btn.onclick = () => { cur = null; RedactEditor.open(pic, fresh[0]); };
-        $('checkList').lastElementChild.querySelector('span').append(btn);
+        // Show me goes to the first one in the editor; Leave it accepts them as they are (they stay in the editor as
+        // uncovered suggestions, so checking again doesn't report them again)
+        const li = $('checkList').lastElementChild, row = document.createElement('div');
+        row.className = 'acts-row';
+        const show = document.createElement('button'); show.className = 'btn small'; show.textContent = 'Show me';
+        show.onclick = () => { cur = null; RedactEditor.open(pic, fresh[0]); };
+        const leave = document.createElement('button'); leave.className = 'btn small'; leave.textContent = 'Leave it';
+        leave.onclick = () => {
+          li.className = ''; li.querySelector('span').replaceChildren('Left uncovered, as you chose: ' + what.join(', ') + '.');
+          $('checkTitle').textContent = 'Ready to save';
+        };
+        row.append(show, leave); li.querySelector('span').append(row);
       } else item('', 'Read again: nothing new found in the new picture.', (f.read ? 'Faces, codes, card, ID and phone numbers, emails and your words were looked for again.' : 'Faces and codes were looked for again (text reading isn\'t available in this browser).') + ' Anything you uncovered yourself is left as you chose. Check the picture below yourself as well.');
       // 5: hidden data
       let had = [];

@@ -1,0 +1,6 @@
+<?xml version='1.0' encoding='utf-8'?>
+<!-- Test builds (android-debug.yml) install as a separate app, "Redact (test)", beside the official one -->
+<resources>
+    <string name="app_name">Redact (test)</string>
+    <string name="title_activity_main">Redact (test)</string>
+</resources>

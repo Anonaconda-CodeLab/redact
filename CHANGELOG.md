@@ -16,6 +16,10 @@
     checked pixel by pixel, looked at and read again, and checked for hidden data (Unmarked's cleaner) before it can be
     saved or shared. The re-check reports only what the editor never marked (not what was uncovered on purpose),
     outlines it in the editor and leads there with Show me.
+- The check's warnings: Leave it accepts what was found as it is; Show me goes to it.
+- Category buttons wrap (no sideways scrolling); changing a whole category says so, with Undo.
+- Only a confirmed save marks a picture saved (a browser download may be cancelled where the page can't see it).
+- Test APKs install as a separate app, "Redact (test)", with a fixed test key: each one updates the last.
 - Browse files: pictures from any folder (Chrome on Android shows only the gallery for Open photos).
 - Up to 20 pictures open at once; the Android app reads each picture only when its turn comes.
 - Settings: what to cover, text languages, PNG or JPEG.
