@@ -18,6 +18,10 @@
     outlines it in the editor and leads there with Show me.
 - While the page loads (about 15 MB of detectors and languages): spectacles being polished, "Cleaning our redaction
   spectacles so we don't miss anything…", and a progress bar that follows the real download.
+- CodeRabbit review fixes: a check that was overtaken by another can no longer show Save; licence texts of everything
+  built in (now including Leptonica's) ship with the app (About → Licences, and licences.txt); the manual's steps keep
+  their numbering in both builds; Import list is a real button and the Open buttons show keyboard focus; less memory in
+  use while checking very large pictures.
 - Security review fixes: the re-check counts a find as covered only when at least 80 % of it is under covers (a bar
   over the eyes no longer counts); saved pictures get plain names by default (`redacted-1.jpg`), with the original name
   as a setting; the face mosaic is coarser (about 5 blocks across) and its note says software can sometimes see through

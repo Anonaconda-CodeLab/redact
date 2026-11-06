@@ -57,4 +57,4 @@ workflow creates the `v<version>` tag itself, from `package.json`. It works in t
    in the protected `signing` environment, so every signed build waits for the owner's approval.
 3. **Publish** (the only job that can write): publishes the GitHub release with the APK, its SHA-256 checksum and the
    changelog entry, or on an ordinary push to `main` the `android-test` pre-release. A run started by hand on another
-   branch (such as `test`) publishes nothing: the signed APK is attached to the run instead.
+   branch (such as `test`) publishes the `android-preview` pre-release, for trying a branch before it is merged.

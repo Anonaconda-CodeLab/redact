@@ -235,3 +235,5 @@ html.native .web-only{display:none}
 .add-row.arrive{animation:arrive .45s ease-out}
 @keyframes arrive{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.glint,.cloth,.add-row.arrive{animation:none}.cloth{transform:translate(52px,40px) scale(.7)}.glint{opacity:0}.loader{transition:none}}
+.add-btn:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:3px}
+.licences{white-space:pre-wrap;overflow-wrap:anywhere;font-family:var(--f-mono);font-size:12px;line-height:1.5;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;margin:0}

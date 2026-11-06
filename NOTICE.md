@@ -1,6 +1,9 @@
 # Notices
 
 ## Third-party components
+The licence texts of everything built into the app ship with it: the **Licences** screen (About → Licences) and
+`licences.txt` next to the page (also inside the APK), both made by `build.mjs` from the files linked below.
+
 The built app embeds these, unmodified (the WebAssembly files are stored gzipped; `tests/origins.test.mjs` checks every
 file against the SHA-256 of the release named here, listed in `tests/origins.json`):
 
@@ -12,7 +15,7 @@ file against the SHA-256 of the release named here, listed in `tests/origins.jso
 | | `zxing_reader.wasm` | 3.1.6 | as above | `5003fb4b88c4fbd1fd518a2fd8c8ad365c519e183a08c03a322dddfea3cea84e` |
 | [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR) PP-OCRv4 text detector (finds text regions), in ONNX form from npm `@gutenye/ocr-models` 1.4.2 (`ch_PP-OCRv4_det_infer.onnx`) | `ppocrv4-det.onnx` | PP-OCRv4 | Apache-2.0 ([src/models/LICENSE-ppocr.txt](src/models/LICENSE-ppocr.txt)) | `30a86f5731181461d08021402766601e4302a9b9b9666be8aff402696339cdff` |
 | [YuNet](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet) face detector, from OpenCV Zoo (commit `48b10fa`) | `yunet-2023mar.onnx` | 2023mar | MIT ([src/models/LICENSE-yunet.txt](src/models/LICENSE-yunet.txt)) | `8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4` |
-| [tesseract.js-core](https://github.com/naptha/tesseract.js-core): the [Tesseract](https://github.com/tesseract-ocr/tesseract) OCR engine and Leptonica compiled to WebAssembly (reads the text regions) | `tesseract-core-simd-lstm.js` | 6.1.2 (as in Flatbed) | Apache-2.0 ([src/vendor/LICENSE-tesseract.txt](src/vendor/LICENSE-tesseract.txt)); Leptonica: BSD-2-Clause | `be3504705d7111d1d1f3f7f9dff326c26d334031ede36e31c4d3cf883027e982` |
+| [tesseract.js-core](https://github.com/naptha/tesseract.js-core): the [Tesseract](https://github.com/tesseract-ocr/tesseract) OCR engine and [Leptonica](http://www.leptonica.org) compiled to WebAssembly (reads the text regions) | `tesseract-core-simd-lstm.js` | 6.1.2 (as in Flatbed) | Apache-2.0 ([src/vendor/LICENSE-tesseract.txt](src/vendor/LICENSE-tesseract.txt)); Leptonica: BSD-2-Clause ([src/vendor/LICENSE-leptonica.txt](src/vendor/LICENSE-leptonica.txt)) | `be3504705d7111d1d1f3f7f9dff326c26d334031ede36e31c4d3cf883027e982` |
 | | `tesseract-core-simd-lstm.wasm` | 6.1.2 | as above | `187d76742dfc0d8929f0b49a619f145bb6370730776c7bd0d3e20c6b2098808d` |
 | Tesseract language data, "fast" models, from [tessdata_fast](https://github.com/tesseract-ocr/tessdata_fast) commit `8741641` | `eng.traineddata` | | Apache-2.0 | `7d4322bd2a7749724879683fc3912cb542f19906c83bcc1a52132556427170b2` |
 | | `fra.traineddata` | | Apache-2.0 | `ced037562e8c80c13122dece28dd477d399af80911a28791a66a63ac1e3445ca` |

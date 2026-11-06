@@ -6,7 +6,7 @@
 // dist/ is not committed: Cloudflare Pages runs this build and publishes dist/ (with dist/_headers), and the Android
 // workflow does the same. The same structure as Flatbed's build.mjs.
 import { readFileSync, writeFileSync, mkdirSync, copyFileSync, readdirSync, rmSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
 
@@ -27,6 +27,9 @@ const PROJECT = {
   // text-reading languages bundled with the app (src/lang/<code>.traineddata.gz), in the order shown (Flatbed's)
   languages: [['eng', 'English'], ['fra', 'Français'], ['spa', 'Español'], ['deu', 'Deutsch'], ['tha', 'ไทย']]
 };
+// for the tests: build with or without the Android parts (REDACT_ANDROID_PAGE=1 or 0), into another folder (REDACT_DIST)
+if (process.env.REDACT_ANDROID_PAGE) PROJECT.androidPage = process.env.REDACT_ANDROID_PAGE === '1';
+const DIST = process.env.REDACT_DIST ? resolve(process.env.REDACT_DIST) : join(root, 'dist');
 const APP = { APP_NAME: PROJECT.name, VERSION: pkg.version };
 const appUrl = /^https:\/\/[\w.-]+\/?$/.test(PROJECT.appUrl) ? PROJECT.appUrl.replace(/\/$/, '') : '';
 APP.APP_URL = appUrl || 'its https web address';
@@ -82,14 +85,36 @@ function md(text) {
   flushP(); flushL(); flushQ(); return out.join('\n');
 }
 // [[android]] ... [[/android]] in the manual: kept (markers removed) when the Android app is announced, else left out
+// (a marker's own indentation is removed first, and the line breaks around a part stay, so taking it out never joins
+// the next line to a list item)
 const manualText = readFileSync(join(root, 'docs', 'MANUAL.md'), 'utf8')
-  .replace(/\[\[android\]\]\n?([\s\S]*?)\[\[\/android\]\]\n?/g, (_, body) => PROJECT.androidPage ? body : '');
+  .replace(/^[ \t]+(?=\[\[\/?android\]\])/gm, '')
+  .replace(/\[\[android\]\]([\s\S]*?)\[\[\/android\]\]/g, (_, body) => PROJECT.androidPage ? body : '');
 if (/\[\[\/?android\]\]/.test(manualText)) throw new Error('Unbalanced [[android]] marker in docs/MANUAL.md');
 const manual = md(manualText);
 const b64 = f => bin(f).toString('base64');
+// The licence texts of everything built in (some licences, such as Leptonica's, ask that their notice goes with every
+// copy): shown on the Licences screen and written to licences.txt next to the page, which also goes into the APK.
+// Identical texts (the Apache licence) are given once, with every component under them.
+const LICENCES = [
+  ['ONNX Runtime Web 1.31.1', 'vendor/LICENSE-onnxruntime.txt'], ['zxing-wasm 3.1.6', 'vendor/LICENSE-zxing-wasm.txt'],
+  ['ZXing-C++ (in zxing-wasm)', 'vendor/LICENSE-zxing-cpp.txt'], ['tesseract.js-core 6.1.2 and Tesseract', 'vendor/LICENSE-tesseract.txt'],
+  ['Leptonica (in tesseract.js-core)', 'vendor/LICENSE-leptonica.txt'], ['Tesseract language data (tessdata_fast)', 'vendor/LICENSE-tesseract.txt'],
+  ['PaddleOCR PP-OCRv4 text detector', 'models/LICENSE-ppocr.txt'], ['YuNet face detector (OpenCV Zoo)', 'models/LICENSE-yunet.txt'],
+  ['Instrument Sans typeface', 'fonts/OFL-InstrumentSans.txt'], ['IBM Plex Mono typeface', 'fonts/OFL-IBMPlexMono.txt']
+];
+const licenceGroups = [];
+for (const [name, f] of LICENCES) {
+  const text = src(f).replace(/\r\n/g, '\n').trim();
+  const g = licenceGroups.find(x => x.text === text);
+  if (g) g.names.push(name); else licenceGroups.push({ names: [name], text });
+}
+const licencesTxt = `${APP.APP_NAME} ${APP.VERSION}: licences of the components built into the app.\n${APP.APP_NAME} itself: GNU General Public License v3 or later (the LICENSE file in the source code).\n\n` +
+  licenceGroups.map(g => `${'='.repeat(78)}\n${g.names.join('\n')}\n${'='.repeat(78)}\n\n${g.text}\n`).join('\n');
+const escHtml = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const langChips = PROJECT.languages.map(([c, n]) => `<button type="button" class="chip-btn" data-lang="${c}" aria-pressed="false" translate="no">${n}</button>`).join('');
 const fill = s => s.replace(/\{\{(APP_NAME|VERSION|APP_URL|APP_HOST)\}\}/g, (_, k) => APP[k]).replace('{{ABOUT}}', about)
-  .replace('{{THANKS}}', thanks).replace('{{DONATE}}', donate).replace('{{LANG_CHIPS}}', langChips).replace('{{MANUAL}}', () => manual).replace('{{ANDROID_LINK}}', androidLink);
+  .replace('{{THANKS}}', thanks).replace('{{DONATE}}', donate).replace('{{LANG_CHIPS}}', langChips).replace('{{LICENCES}}', () => escHtml(licencesTxt)).replace('{{MANUAL}}', () => manual).replace('{{ANDROID_LINK}}', androidLink);
 
 const fonts = `@font-face{font-family:"Instrument Sans";font-style:normal;font-display:swap;font-weight:400 700;font-stretch:75% 100%;src:url(data:font/woff2;base64,${b64('fonts/InstrumentSans-latin-variable.woff2')}) format("woff2-variations")}
 @font-face{font-family:"IBM Plex Mono";font-style:normal;font-display:swap;font-weight:400;src:url(data:font/woff2;base64,${b64('fonts/IBMPlexMono-latin-400.woff2')}) format("woff2")}
@@ -170,14 +195,15 @@ ${js}
 </body></html>
 `;
 
-rmSync(join(root, 'dist'), { recursive: true, force: true });
-mkdirSync(join(root, 'dist'), { recursive: true });
-const file = join(root, 'dist', 'index.html');
+rmSync(DIST, { recursive: true, force: true });
+mkdirSync(DIST, { recursive: true });
+const file = join(DIST, 'index.html');
 writeFileSync(file, page);
 
+writeFileSync(join(DIST, 'licences.txt'), licencesTxt);
 // home-screen install: a web manifest and local icons (no service worker; the page itself never touches the network)
-for (const f of readdirSync(join(root, 'src', 'icons'))) copyFileSync(join(root, 'src', 'icons', f), join(root, 'dist', f));
-writeFileSync(join(root, 'dist', 'manifest.webmanifest'), JSON.stringify({
+for (const f of readdirSync(join(root, 'src', 'icons'))) copyFileSync(join(root, 'src', 'icons', f), join(DIST, f));
+writeFileSync(join(DIST, 'manifest.webmanifest'), JSON.stringify({
   name: APP.APP_NAME, short_name: APP.APP_NAME, id: '/', start_url: '/', scope: '/', display: 'standalone',
   background_color: '#f5f3f4', theme_color: '#8f1d3a',
   description: 'Cover faces, numbers and names in photos and screenshots before sharing, entirely on your device.',
@@ -189,13 +215,13 @@ writeFileSync(join(root, 'dist', 'manifest.webmanifest'), JSON.stringify({
   ]
 }, null, 2) + '\n');
 // the Android download page (also the target of the app's Check for updates button: android.html?v=<installed version>)
-if (PROJECT.androidPage) writeFileSync(join(root, 'dist', 'android.html'), src('android.html').replace(/\{\{(VERSION|REPO|CERT|CONTACT_LINE|APP_NAME|APP_URL)\}\}/g, (_, k) =>
+if (PROJECT.androidPage) writeFileSync(join(DIST, 'android.html'), src('android.html').replace(/\{\{(VERSION|REPO|CERT|CONTACT_LINE|APP_NAME|APP_URL)\}\}/g, (_, k) =>
   ({ VERSION: APP.VERSION, REPO: repo, CERT: PROJECT.certSha256, APP_NAME: APP.APP_NAME, APP_URL: appUrl || '',
      CONTACT_LINE: contact ? ` · Questions or problems: <a href="mailto:${contact}">${contact}</a>` : '' })[k]));
 // HTTP headers for Cloudflare Pages. The page's own Content Security Policy (in index.html) does the real work; these
 // add what a <meta> tag can't (no framing by other sites) and a second, header-level block on all connections. A
 // browser applies both policies, so a page is only ever allowed what both permit.
-writeFileSync(join(root, 'dist', '_headers'), `/*
+writeFileSync(join(DIST, '_headers'), `/*
   Content-Security-Policy: connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
   Referrer-Policy: no-referrer
   X-Content-Type-Options: nosniff
@@ -208,8 +234,8 @@ https://:project.pages.dev/*
   X-Robots-Tag: noindex
 `);
 if (appUrl) {
-  writeFileSync(join(root, 'dist', 'robots.txt'), `User-agent: *\nAllow: /\n\nSitemap: ${appUrl}/sitemap.xml\n`);
-  writeFileSync(join(root, 'dist', 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?>
+  writeFileSync(join(DIST, 'robots.txt'), `User-agent: *\nAllow: /\n\nSitemap: ${appUrl}/sitemap.xml\n`);
+  writeFileSync(join(DIST, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>${appUrl}/</loc></url>
 ${PROJECT.androidPage ? `  <url><loc>${appUrl}/android.html</loc></url>\n` : ''}</urlset>

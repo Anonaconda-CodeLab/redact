@@ -57,7 +57,7 @@ const RedactApp = (() => {
   }
 
   // ---------- screens ----------
-  const screens = ['scrHome', 'scrFirst', 'scrEdit', 'scrCheck', 'scrSettings', 'scrAbout', 'scrHelp'];
+  const screens = ['scrHome', 'scrFirst', 'scrEdit', 'scrCheck', 'scrSettings', 'scrAbout', 'scrHelp', 'scrLicences'];
   let current = 'scrHome';
   const listeners = [];
   function show(id) {
@@ -385,13 +385,15 @@ const RedactApp = (() => {
   // ---------- about, manual, Back ----------
   let aboutFrom = 'scrHome';
   $('btnHome').onclick = () => show('scrHome');
-  $('btnAbout').onclick = () => { if (!['scrAbout', 'scrHelp'].includes(current)) aboutFrom = current === 'scrFirst' ? 'scrHome' : current; show('scrAbout'); };
+  $('btnAbout').onclick = () => { if (!['scrAbout', 'scrHelp', 'scrLicences'].includes(current)) aboutFrom = current === 'scrFirst' ? 'scrHome' : current; show('scrAbout'); };
   $('btnAboutBack').onclick = () => show(aboutFrom);
   $('btnHelp').onclick = $('btnHelp2').onclick = () => show('scrHelp');
   $('btnHelpBack').onclick = () => show('scrAbout');
+  $('btnLicences').onclick = () => show('scrLicences');
+  $('btnLicencesBack').onclick = () => show('scrAbout');
   // Android's Back button: back inside the app first (MainActivity asks this)
   window.redactBack = () => {
-    const to = { scrHelp: 'scrAbout', scrAbout: aboutFrom, scrSettings: settingsFrom, scrCheck: 'scrEdit', scrEdit: 'scrHome', scrFirst: 'scrHome' }[current];
+    const to = { scrHelp: 'scrAbout', scrLicences: 'scrAbout', scrAbout: aboutFrom, scrSettings: settingsFrom, scrCheck: 'scrEdit', scrEdit: 'scrHome', scrFirst: 'scrHome' }[current];
     if (!to) return false;
     if (current === 'scrCheck') RedactSave.back(); else show(to);
     return true;

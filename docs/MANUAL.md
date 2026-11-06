@@ -14,9 +14,8 @@ pixels underneath and saves a new picture made only from what you see, with no h
 ## Covering a picture
 
 1. Tap **Open photos** (your gallery) or **Browse files** (any folder: Downloads, a USB stick, a cloud drive on your
-   phone). Several pictures at once is fine, up to 20. On a computer you can also drop pictures onto the page.
-   [[android]]In the Android app you can also share pictures to Redact from your gallery or another app.
-   [[/android]]
+   phone). Several pictures at once is fine, up to 20. On a computer you can also drop pictures onto the page.[[android]]
+   In the Android app you can also share pictures to Redact from your gallery or another app.[[/android]]
 2. The first time, choose **what Redact should cover** straight away (see below). Tick **Remember my choice** to skip
    this next time.
 3. Redact looks at each picture: faces, text, codes. It takes a few seconds a picture.

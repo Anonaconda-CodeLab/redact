@@ -324,17 +324,16 @@ window.RedactEditor = (() => {
     if (f.size > 64 * 1024) { A.toast('That file is too large for a word list.'); return; }
     importText(await f.text());
   };
-  if (NATIVE) {
-    $('findImport').parentElement.hidden = true; $('btnFindImportN').hidden = false;
-    $('btnFindImportN').onclick = async () => {
-      try {
-        const [d] = await RedactNative.pickFiles('text'); if (!d) return;
-        if (+d.size > 64 * 1024) { A.toast('That file is too large for a word list.'); return; }
-        const b = await RedactNative.readOne(d); RedactNative.release();
-        if (b && b.length <= 64 * 1024) importText(new TextDecoder().decode(b));
-      } catch (err) { A.toast('Could not open the list: ' + (err && err.message || err)); }
-    };
-  }
+  // a real button (reachable with the keyboard) that opens the browser's file picker, or Android's in the app
+  $('btnFindImport').onclick = async () => {
+    if (!NATIVE) { $('findImport').click(); return; }
+    try {
+      const [d] = await RedactNative.pickFiles('text'); if (!d) return;
+      if (+d.size > 64 * 1024) { A.toast('That file is too large for a word list.'); return; }
+      const b = await RedactNative.readOne(d); RedactNative.release();
+      if (b && b.length <= 64 * 1024) importText(new TextDecoder().decode(b));
+    } catch (err) { A.toast('Could not open the list: ' + (err && err.message || err)); }
+  };
 
   $('btnCheck').onclick = () => { if (ed.pic) RedactSave.check(ed.pic); };
   setTool('select');

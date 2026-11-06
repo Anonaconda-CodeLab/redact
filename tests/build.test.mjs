@@ -71,3 +71,37 @@ test('the Android page and its links are off until the launch', () => {
 test('pictures, words and results are kept from browser translators', () => {
   for (const id of ['pics', 'stage', 'findIn', 'findList', 'checkImg', 'checkSub', 'editN']) assert.match(html, new RegExp(`id="${id}"[^>]*translate="no"|translate="no"[^>]*id="${id}"`), id);
 });
+
+test('licence texts ship with the app: the Licences screen and licences.txt (CodeRabbit: Leptonica)', () => {
+  const txt = dist('licences.txt');
+  for (const s of ['Copyright (C) 2001-2020 Leptonica', 'Apache License', 'MIT License', 'SIL OPEN FONT LICENSE', 'Leptonica (in tesseract.js-core)', 'YuNet face detector', 'PaddleOCR'])
+    assert.ok(txt.includes(s), s);
+  assert.equal((txt.match(/TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION/g) || []).length, 1, 'the Apache text once, with its components listed together');
+  assert.match(html, /id="scrLicences"[\s\S]*Copyright \(C\) 2001-2020 Leptonica/);
+  assert.match(html, /id="btnLicences"/);
+});
+
+test('keyboard: Import list is a real button, and the Open buttons show focus (CodeRabbit)', () => {
+  assert.match(html, /<button class="btn small" id="btnFindImport">Import list<\/button>/);
+  assert.match(html, /\.add-btn:has\(input:focus-visible\)\{outline:/);
+});
+
+test('manual: each numbered step is its own list item, with and without the Android parts (CodeRabbit)', async () => {
+  const { execFileSync } = await import('node:child_process');
+  const { mkdtempSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  for (const on of ['0', '1']) {
+    const dir = mkdtempSync(join(tmpdir(), 'redact-manual-'));
+    try {
+      execFileSync(process.execPath, [new URL('../build.mjs', import.meta.url).pathname], { env: { ...process.env, REDACT_ANDROID_PAGE: on, REDACT_DIST: dir } });
+      const page = readFileSync(join(dir, 'index.html'), 'utf8'), manual = /<article class="manual" id="manual">([\s\S]*?)<\/article>/.exec(page)[1];
+      const steps = /<h2>Covering a picture<\/h2>\s*<ol>([\s\S]*?)<\/ol>/.exec(manual)[1];
+      const items = steps.split('<li>').slice(1).map(x => x.replace(/<[^>]+>/g, '').trim());
+      assert.equal(items.length, 6, `androidPage ${on}: ${JSON.stringify(items.map(i => i.slice(0, 30)))}`);
+      assert.match(items[1], /^The first time/);
+      assert.equal(/share pictures to Redact from your gallery/.test(items[0]), on === '1');
+      assert.ok(!/\[\[\/?android\]\]/.test(manual));
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  }
+});

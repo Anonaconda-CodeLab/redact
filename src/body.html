@@ -133,7 +133,7 @@
       <form class="find-row" id="findForm" autocomplete="off"><input class="text-in" id="findIn" type="text" maxlength="200" placeholder="A name, a street, a number…" aria-label="A word to find" enterkeyhint="done" spellcheck="false" translate="no"><button class="btn small" type="submit">Add</button></form>
       <ul class="find-list" id="findList" translate="no"></ul>
       <p class="dev-meta" id="findNote">Found in every open picture, allowing for small reading errors. The list is kept until you close {{APP_NAME}}; save it to a file to use again.</p>
-      <div class="acts-row"><button class="btn small" id="btnFindSave">Save list</button><label class="btn small"><input type="file" id="findImport" accept=".txt,text/plain" hidden>Import list</label><button class="btn small" id="btnFindImportN" hidden>Import list</button><button class="btn small" id="btnFindClear">Clear</button></div>
+      <div class="acts-row"><button class="btn small" id="btnFindSave">Save list</button><button class="btn small" id="btnFindImport">Import list</button><input type="file" id="findImport" accept=".txt,text/plain" hidden><button class="btn small" id="btnFindClear">Clear</button></div>
     </details>
     <div class="actions"><button class="btn-start" id="btnCheck"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.2 4.2L19 7"/></svg><span>Check and save</span></button></div>
   </section>
@@ -191,9 +191,16 @@
     <div class="intro"><h1>About and help</h1></div>
     <div class="links">
       <button class="row-btn" id="btnHelp"><span>User manual<small>How to cover, what is found automatically, and privacy</small></span><span class="chev">›</span></button>
+      <button class="row-btn" id="btnLicences"><span>Licences<small>The components built into {{APP_NAME}} and their licences</small></span><span class="chev">›</span></button>
     </div>
     {{ABOUT}}
     <div class="acts-row"><button class="btn" id="btnAboutBack">Back</button></div>
+  </section>
+
+  <!-- LICENCES -->
+  <section id="scrLicences" class="screen" hidden>
+    <div class="acts-row"><button class="btn" id="btnLicencesBack">‹ Back</button></div>
+    <pre class="licences" translate="no">{{LICENCES}}</pre>
   </section>
 
   <!-- MANUAL -->

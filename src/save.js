@@ -45,10 +45,16 @@ window.RedactSave = (() => {
       const W = bm.width, H = bm.height, cv = new OffscreenCanvas(W, H), g = cv.getContext('2d', { willReadFrequently: true });
       g.drawImage(bm, 0, 0); bm.close();
       orig = g.getImageData(0, 0, W, H);
-      const work = new ImageData(new Uint8ClampedArray(orig.data), W, H);
-      const painted = Paint.paint({ w: W, h: H, data: work.data }, pic.covers, { colour: A.settings.colour, faces: A.settings.faces }, rand, 1);
-      g.putImageData(work, 0, 0);
+      // the painted copy lives only until it is encoded, and the full-size canvas is released straight after, so fewer
+      // full-size copies are alive at once on a phone (a 48-megapixel photo is 192 MB a copy)
+      let painted;
+      {
+        const work = new ImageData(new Uint8ClampedArray(orig.data), W, H);
+        painted = Paint.paint({ w: W, h: H, data: work.data }, pic.covers, { colour: A.settings.colour, faces: A.settings.faces }, rand, 1);
+        g.putImageData(work, 0, 0);
+      }
       const blob = await cv.convertToBlob({ type: mime, quality: 0.92 });
+      cv.width = cv.height = 1;
       if (blob.type !== mime) throw new Error('this browser could not write a ' + (mime === 'image/png' ? 'PNG' : 'JPEG'));
       // the browser's encoder may add blocks of its own (Chrome puts a standard colour profile in every JPEG): the new
       // file goes through Unmarked's cleaner too, which cuts them out without touching the picture data
@@ -56,9 +62,11 @@ window.RedactSave = (() => {
       if (token !== cur) return;
       // 3: decoded again, pixel by pixel
       const back = await createImageBitmap(new Blob([out], { type: mime }));
-      const g2 = new OffscreenCanvas(W, H).getContext('2d', { willReadFrequently: true });
+      const c2 = new OffscreenCanvas(W, H), g2 = c2.getContext('2d', { willReadFrequently: true });
       g2.drawImage(back, 0, 0);
-      const chk = Paint.check({ w: W, h: H, data: g2.getImageData(0, 0, W, H).data }, { w: W, h: H, data: orig.data }, painted, mime === 'image/png' ? 0 : 24);
+      const saved = g2.getImageData(0, 0, W, H).data;
+      c2.width = c2.height = 1;
+      const chk = Paint.check({ w: W, h: H, data: saved }, { w: W, h: H, data: orig.data }, painted, mime === 'image/png' ? 0 : 24);
       orig = null;
       url = URL.createObjectURL(new Blob([out], { type: mime }));
       $('checkImg').src = url; $('checkImg').hidden = false;
@@ -115,6 +123,7 @@ window.RedactSave = (() => {
       let had = [];
       try { had = ((await Clean.inspect(pic.bytes)).findings || []).filter(x => x.keep !== 'always'); } catch (e) { /* unreadable metadata: nothing to list */ }
       const left = ((await Clean.inspect(out)).findings || []).filter(x => x.keep !== 'always');
+      if (token !== cur) return;   // another check started meanwhile: this one must not show Save on its screen
       if (left.length) { $('checkTitle').textContent = 'This picture can\'t be saved'; item('bad', 'The new file still carries hidden data.', left.map(x => x.label).join(', ') + '. Please report this (About → Questions or problems).'); return; }
       const where = had.some(x => PICTURE_FINDINGS.has(x.id) || /gps|location/i.test(x.id + x.label));
       item('', had.length ? `Hidden data removed: ${[...new Set(had.map(x => x.label))].slice(0, 6).join(', ')}${had.length > 6 ? '…' : ''}.` : 'No hidden data: the original had none, and the new file has none either.', had.length && where ? 'Including where the photo was taken.' : 'The new file holds the picture and nothing else.');
