@@ -1,7 +1,4 @@
 name: Android APK
-# Not used while the repository is private (GitHub can only protect the "signing" environment with the owner's approval
-# in a public repository): until then, test APKs come from android-debug.yml, signed with a throwaway debug key.
-#
 # Builds the Android app (mobile/) from the same web app in dist/, signs it with the studio's release key, and publishes
 # it. Pushes to main publish the "android-test" pre-release. Running this workflow by hand on another branch (such as
 # test) publishes the "android-preview" pre-release, for trying changes before they are merged. Official releases are

@@ -63,9 +63,15 @@ test('the screens, the two ways in, the donation card', () => {
   assert.match(html, /settings = \{[^}]*names: 'plain'/, 'and in the settings');
 });
 
-test('the Android page and its links are off until the launch', () => {
-  assert.ok(!existsSync(new URL('../dist/android.html', import.meta.url)));
-  assert.ok(!/android\.html/.test(html));
+test('launched: the Android download page is built and linked from the web app (web only)', () => {
+  const page = dist('android.html');
+  assert.match(page, new RegExp(`Latest version: ${pkg.version.replace(/\./g, '\\.')}`));
+  assert.match(page, /your pictures never leave your phone/);
+  assert.match(page, /4D:6C:EA:58:94:C0:D7:D8/, 'the studio certificate fingerprint');
+  assert.match(html, /<p class="web-only app-link"><a href="\/android.html">Also available as an Android app →<\/a><\/p>/);
+  assert.match(html, /<a class="btn web-only" href="\/android.html">Android app<\/a>/);
+  assert.match(html, /<a class="btn native-only" href="https:\/\/redact\.anonacondacodelab\.com\/android\.html\?v=/, 'Check for updates in the app');
+  assert.match(dist('sitemap.xml'), /android\.html/);
 });
 
 test('pictures, words and results are kept from browser translators', () => {

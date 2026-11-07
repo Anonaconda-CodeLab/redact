@@ -23,7 +23,7 @@ const PROJECT = {
   kofi: 'anonacondacodelab', // Ko-fi username; leave empty to hide the support link
   // Android app announced on the website: the install page (dist/android.html) and the manual's [[android]] parts.
   // Off until the launch; the APK itself is built either way.
-  androidPage: false,
+  androidPage: true,
   // text-reading languages bundled with the app (src/lang/<code>.traineddata.gz), in the order shown (Flatbed's)
   languages: [['eng', 'English'], ['fra', 'Français'], ['spa', 'Español'], ['deu', 'Deutsch'], ['tha', 'ไทย']]
 };

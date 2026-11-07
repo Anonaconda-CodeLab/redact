@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.0
+First release of Redact: cover faces, number plates, house numbers, names, card and ID numbers, email addresses, phone
+numbers, QR codes and barcodes in photos and screenshots, entirely on your device. The covers become part of the
+picture, every saved picture is checked pixel by pixel and read again, and it is saved without hidden data. Web app at
+redact.anonacondacodelab.com and an Android app with no internet permission. Reviewed privately and by CodeRabbit
+before release. (Everything in 0.1.0 and 0.2.0 below, plus the Android download page.)
+
 ## 0.2.0
 - The editor (test build, not released). Redact now covers pictures and saves them:
   - Found automatically: faces, card numbers and IBANs (checked), Thai ID numbers (checked) and passport lines,

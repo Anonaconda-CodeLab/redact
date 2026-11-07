@@ -5,9 +5,8 @@ Faces, number plates, house numbers, names and addresses, card and account numbe
 them, you check and add to what it found, and the covers replace the pixels themselves, so they can't be lifted off.
 No account, no server, no upload.
 
-> **Status: test build 0.2.0**, in testing before the first release. See `docs/MANUAL.md` for how it works.
-
-**Web app (when launched): [redact.anonacondacodelab.com](https://redact.anonacondacodelab.com)**
+**Web app: [redact.anonacondacodelab.com](https://redact.anonacondacodelab.com)** · **Android app:
+[download and how to check it](https://redact.anonacondacodelab.com/android.html)** (or the [latest release](https://github.com/Anonaconda-CodeLab/redact/releases/latest)). See `docs/MANUAL.md` for how it works.
 
 ## How it works
 The whole web app is one file, `dist/index.html`, built by `node build.mjs` from `src/`. Its Content Security Policy

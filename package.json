@@ -1,6 +1,6 @@
 {
   "name": "redact",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "description": "Cover faces, number plates, card numbers and other details in photos and screenshots before sharing, entirely on your device.",
   "private": true,
   "type": "module",

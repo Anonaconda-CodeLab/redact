@@ -20,5 +20,3 @@ Thumbs.db
 # Android signing keys never go in the repository
 *.jks
 *.keystore
-# the one exception: the public key for test builds only (see mobile/android/app/build.gradle)
-!mobile/android/test.keystore

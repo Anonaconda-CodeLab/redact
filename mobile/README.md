@@ -16,14 +16,11 @@ starts, and exposed only to the app chosen in the share sheet.
 
 ## Building
 
-While the repository is private, GitHub builds a test APK on each push to `test` (`.github/workflows/android-debug.yml`,
-attached to the run as an artifact): a separate app, "Redact (test)" (`com.anonacondacodelab.redact.test`), signed with
-the public test key `test.keystore` (password `android`; for test builds only), so each test APK updates the last.
-The key is public on purpose, so test builds need no secrets while the repository is private; that is also why anyone
-could sign an update to "Redact (test)". It must never sign anything but test builds of `com.anonacondacodelab.redact.test`
-(a test checks that release builds can't use it), test APKs are never linked or published, and "Redact (test)" is
-uninstalled and this workflow retired (or limited to manual runs) at launch. Once it is public, `android.yml` signs
-with the studio's key through the protected `signing` environment, as in the studio's other apps. To build locally you need Node 22, JDK 21 and the Android SDK:
+GitHub builds and signs the APK with `.github/workflows/android.yml` (below), through the protected `signing`
+environment, as in the studio's other apps. To try a branch on a phone before it is merged, run that workflow by hand on
+the branch: it publishes the `android-preview` pre-release, signed after the owner's approval. (Until the 1.0.0 launch,
+while the repository was private, test APKs came from a separate workflow with a public test key; both were removed at
+launch. A debug build made by hand still installs as a separate app, "Redact (test)".) To build locally you need Node 22, JDK 21 and the Android SDK:
 
 ```
 node build.mjs                      # in the repository root
