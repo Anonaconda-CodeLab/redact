@@ -18,7 +18,11 @@ starts, and exposed only to the app chosen in the share sheet.
 
 GitHub builds and signs the APK with `.github/workflows/android.yml` (below), through the protected `signing`
 environment, as in the studio's other apps. To try a branch on a phone before it is merged, run that workflow by hand on
-the branch: it publishes the `android-preview` pre-release, signed after the owner's approval. (Until the 1.0.0 launch,
+the branch: it publishes the `android-preview` pre-release, signed after the owner's approval. **A preview replaces the
+official app:** it is a release build signed with the same studio key, so Android installs it as an update over the
+official Redact, not beside it. To go back to the official version, install the latest release; if the preview has a
+higher version code, Android refuses that as a downgrade, so uninstall the preview first (which also clears Redact's
+settings on that phone). (Until the 1.0.0 launch,
 while the repository was private, test APKs came from a separate workflow with a public test key; both were removed at
 launch. A debug build made by hand still installs as a separate app, "Redact (test)".) To build locally you need Node 22, JDK 21 and the Android SDK:
 

@@ -40,9 +40,10 @@
   only; shared files are accepted only from other apps (`content://`, never Redact's own files), and a file over the
   60 MB limit is refused before it is read. Saving writes only to the place just chosen in Android's "save as" screen;
   sharing uses a private folder inside the app, emptied before each share and when the app starts.
-- **Signing:** every APK is signed with the studio's key through the protected `signing` environment, each signing
-  approved by the owner, and official releases come from `main` only; the release build fails if an APK is signed with
-  any other key. (Before the 1.0.0 launch, test APKs were a separate app, `com.anonacondacodelab.redact.test`, signed
+- **Signing:** every APK published by the Android workflow (`android.yml`) is signed with the studio's key through the
+  protected `signing` environment, each signing approved by the owner, and official releases come from `main` only;
+  the workflow fails if an APK is signed with any other key. APKs built by anyone on their own computer are signed with
+  their own (or a debug) key: check the certificate fingerprint on the download page. (Before the 1.0.0 launch, test APKs were a separate app, `com.anonacondacodelab.redact.test`, signed
   with a public test key; that workflow and key were removed at launch, and they could never update the official app,
   which Android only updates from the same signer.)
 

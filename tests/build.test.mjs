@@ -111,3 +111,9 @@ test('manual: each numbered step is its own list item, with and without the Andr
     } finally { rmSync(dir, { recursive: true, force: true }); }
   }
 });
+
+test('download page: the button is readable in both colour schemes (CodeRabbit, PR #2)', () => {
+  const page = dist('android.html');
+  assert.match(page, /\.dl\{[^}]*color:var\(--accent-fg\)/);
+  assert.match(page, /prefers-color-scheme:dark\)\{:root\{[^}]*--accent:#f08aa3;--accent-fg:#2a0a12;/);
+});
